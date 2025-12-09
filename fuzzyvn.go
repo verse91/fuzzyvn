@@ -486,6 +486,8 @@ func Normalize(s string) string {
 	output, _, _ := transform.String(t, s)
 	output = strings.ReplaceAll(output, "đ", "d")
 	output = strings.ReplaceAll(output, "Đ", "D")
+	output = strings.ReplaceAll(output, "y", "i")
+	output = strings.ReplaceAll(output, "Y", "I")
 	return output
 }
 
