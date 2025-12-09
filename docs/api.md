@@ -1,24 +1,24 @@
-# API Reference
+# Tham khảo API
 
 ## Searcher
 
-### Types
+### Kiểu dữ liệu
 
 ```go
 type Searcher struct {
-    Originals     []string     // Original file paths
-    Normalized    []string     // Normalized strings for fuzzy search
-    FilenamesOnly []string     // Filenames only for Levenshtein
-    Cache         *QueryCache  // Query cache
+    Originals     []string     // Đường dẫn file gốc
+    Normalized    []string     // Chuỗi đã chuẩn hóa cho fuzzy search
+    FilenamesOnly []string     // Chỉ tên file cho Levenshtein
+    Cache         *QueryCache  // Cache query
 }
 
 type MatchResult struct {
-    Str   string  // File path
-    Score int     // Match score
+    Str   string  // Đường dẫn file
+    Score int     // Điểm khớp
 }
 ```
 
-### Functions
+### Hàm khởi tạo
 
 #### NewSearcher
 
@@ -26,13 +26,13 @@ type MatchResult struct {
 func NewSearcher(items []string) *Searcher
 ```
 
-Creates a new Searcher with the given file paths.
+Tạo Searcher mới với danh sách đường dẫn file.
 
-**Parameters:**
-- `items`: List of file paths to index
+**Tham số:**
+- `items`: Danh sách đường dẫn file cần index
 
-**Returns:**
-- `*Searcher`: New searcher instance with empty cache
+**Trả về:**
+- `*Searcher`: Instance searcher mới với cache rỗng
 
 ---
 
@@ -42,18 +42,18 @@ Creates a new Searcher with the given file paths.
 func NewSearcherWithCache(items []string, cache *QueryCache) *Searcher
 ```
 
-Creates a new Searcher with an existing cache.
+Tạo Searcher mới với cache có sẵn.
 
-**Parameters:**
-- `items`: List of file paths to index
-- `cache`: Existing QueryCache to reuse
+**Tham số:**
+- `items`: Danh sách đường dẫn file cần index
+- `cache`: QueryCache có sẵn để tái sử dụng
 
-**Returns:**
-- `*Searcher`: New searcher instance with provided cache
+**Trả về:**
+- `*Searcher`: Instance searcher mới với cache được cung cấp
 
 ---
 
-### Methods
+### Phương thức
 
 #### Search
 
@@ -61,13 +61,13 @@ Creates a new Searcher with an existing cache.
 func (s *Searcher) Search(query string) []string
 ```
 
-Searches for files matching the query.
+Tìm kiếm file khớp với query.
 
-**Parameters:**
-- `query`: Search query (Vietnamese diacritics are handled automatically)
+**Tham số:**
+- `query`: Chuỗi tìm kiếm (dấu tiếng Việt được xử lý tự động)
 
-**Returns:**
-- `[]string`: Top 20 matching file paths, sorted by relevance
+**Trả về:**
+- `[]string`: Top 20 đường dẫn file khớp nhất, sắp xếp theo độ liên quan
 
 ---
 
@@ -77,11 +77,11 @@ Searches for files matching the query.
 func (s *Searcher) RecordSelection(query, filePath string)
 ```
 
-Records that a user selected a file for a query. This boosts the file in future similar searches.
+Ghi nhận người dùng đã chọn file nào cho query nào. File này sẽ được boost trong các lần tìm kiếm tương tự sau.
 
-**Parameters:**
-- `query`: The search query
-- `filePath`: The file that was selected
+**Tham số:**
+- `query`: Query tìm kiếm
+- `filePath`: File đã được chọn
 
 ---
 
@@ -91,7 +91,7 @@ Records that a user selected a file for a query. This boosts the file in future 
 func (s *Searcher) ClearCache()
 ```
 
-Clears all cached query-file associations.
+Xóa toàn bộ cache.
 
 ---
 
@@ -101,26 +101,26 @@ Clears all cached query-file associations.
 func (s *Searcher) GetCache() *QueryCache
 ```
 
-Returns the cache for reuse when rebuilding the searcher.
+Lấy cache để tái sử dụng khi rebuild searcher.
 
 ---
 
 ## QueryCache
 
-### Types
+### Kiểu dữ liệu
 
 ```go
 type QueryCache struct {
-    // Internal fields (not exported)
+    // Các trường nội bộ (không export)
 }
 
 type CacheEntry struct {
-    FilePath    string  // Cached file path
-    SelectCount int     // Number of times selected
+    FilePath    string  // Đường dẫn file đã cache
+    SelectCount int     // Số lần được chọn
 }
 ```
 
-### Functions
+### Hàm khởi tạo
 
 #### NewQueryCache
 
@@ -128,14 +128,14 @@ type CacheEntry struct {
 func NewQueryCache() *QueryCache
 ```
 
-Creates a new empty cache with default settings:
+Tạo cache rỗng với cấu hình mặc định:
 - `maxQueries`: 100
 - `maxPerQuery`: 5
 - `boostScore`: 5000
 
 ---
 
-### Methods
+### Phương thức
 
 #### SetMaxQueries
 
@@ -143,7 +143,7 @@ Creates a new empty cache with default settings:
 func (c *QueryCache) SetMaxQueries(n int)
 ```
 
-Sets the maximum number of queries to cache (LRU eviction).
+Đặt số lượng query tối đa được cache (loại bỏ theo LRU).
 
 ---
 
@@ -153,7 +153,7 @@ Sets the maximum number of queries to cache (LRU eviction).
 func (c *QueryCache) SetBoostScore(score int)
 ```
 
-Sets the base boost score for cached results.
+Đặt điểm boost cơ bản cho kết quả từ cache.
 
 ---
 
@@ -163,7 +163,7 @@ Sets the base boost score for cached results.
 func (c *QueryCache) RecordSelection(query, filePath string)
 ```
 
-Records a query-file selection.
+Ghi nhận lựa chọn query-file.
 
 ---
 
@@ -173,10 +173,10 @@ Records a query-file selection.
 func (c *QueryCache) GetBoostScores(query string) map[string]int
 ```
 
-Returns boost scores for files matching similar queries.
+Lấy điểm boost cho các file khớp với query tương tự.
 
-**Returns:**
-- `map[string]int`: File path → boost score
+**Trả về:**
+- `map[string]int`: Đường dẫn file → điểm boost
 
 ---
 
@@ -186,14 +186,14 @@ Returns boost scores for files matching similar queries.
 func (c *QueryCache) GetCachedFiles(query string, limit int) []string
 ```
 
-Returns cached files for similar queries.
+Lấy các file đã cache cho query tương tự.
 
-**Parameters:**
-- `query`: Current search query
-- `limit`: Maximum files to return
+**Tham số:**
+- `query`: Query tìm kiếm hiện tại
+- `limit`: Số file tối đa trả về
 
-**Returns:**
-- `[]string`: Cached file paths sorted by relevance
+**Trả về:**
+- `[]string`: Đường dẫn file đã cache, sắp xếp theo độ liên quan
 
 ---
 
@@ -203,7 +203,7 @@ Returns cached files for similar queries.
 func (c *QueryCache) GetRecentQueries(limit int) []string
 ```
 
-Returns the most recent queries (MRU order).
+Lấy các query gần đây nhất (thứ tự MRU - mới nhất trước).
 
 ---
 
@@ -213,7 +213,7 @@ Returns the most recent queries (MRU order).
 func (c *QueryCache) GetAllRecentFiles(limit int) []string
 ```
 
-Returns all recently cached files regardless of query.
+Lấy tất cả file đã cache gần đây, không phụ thuộc query.
 
 ---
 
@@ -223,7 +223,7 @@ Returns all recently cached files regardless of query.
 func (c *QueryCache) Size() int
 ```
 
-Returns the number of cached queries.
+Trả về số lượng query đã cache.
 
 ---
 
@@ -233,11 +233,11 @@ Returns the number of cached queries.
 func (c *QueryCache) Clear()
 ```
 
-Clears all cache entries.
+Xóa toàn bộ cache.
 
 ---
 
-## Utility Functions
+## Hàm tiện ích
 
 #### Normalize
 
@@ -245,9 +245,9 @@ Clears all cache entries.
 func Normalize(s string) string
 ```
 
-Normalizes Vietnamese text by removing diacritics.
+Chuẩn hóa văn bản tiếng Việt bằng cách bỏ dấu.
 
-**Examples:**
+**Ví dụ:**
 - `"Đường"` → `"Duong"`
 - `"Nguyễn"` → `"Nguyen"`
 - `"café"` → `"cafe"`
@@ -260,8 +260,7 @@ Normalizes Vietnamese text by removing diacritics.
 func LevenshteinRatio(s1, s2 string) int
 ```
 
-Calculates the Levenshtein edit distance between two strings.
+Tính khoảng cách Levenshtein (số phép sửa) giữa hai chuỗi.
 
-**Returns:**
-- `int`: Number of edits (insertions, deletions, substitutions)
-
+**Trả về:**
+- `int`: Số phép sửa (thêm, xóa, thay thế)

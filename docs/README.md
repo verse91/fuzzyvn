@@ -1,34 +1,34 @@
-# FuzzyVN Documentation
+# Tài liệu FuzzyVN
 
-FuzzyVN is a Vietnamese-optimized fuzzy file finder library for Go. It combines multiple search algorithms with intelligent caching to provide fast, accurate file search results.
+FuzzyVN là thư viện tìm kiếm file mờ (fuzzy finder) được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác.
 
-## Table of Contents
+## Mục lục
 
-- [Installation](./installation.md)
-- [Quick Start](./quickstart.md)
-- [API Reference](./api.md)
-- [Cache System](./cache.md)
-- [Search Algorithm](./algorithm.md)
-- [Examples](./examples.md)
+- [Cài đặt](./installation.md)
+- [Bắt đầu nhanh](./quickstart.md)
+- [API](./api.md)
+- [Hệ thống Cache](./cache.md)
+- [Thuật toán](./algorithm.md)
+- [Ví dụ](./examples.md)
 
-## Features
+## Tính năng
 
-- **Vietnamese Support**: Handles Vietnamese diacritics (converts "Đường" to "Duong")
-- **Multi-Algorithm Search**: Combines fuzzy matching + Levenshtein distance
-- **Smart Caching**: Learns from user selections to boost relevant results
-- **Typo Tolerance**: Handles common typing errors
-- **Thread-Safe**: Safe for concurrent access
+- **Hỗ trợ tiếng Việt**: Xử lý dấu tiếng Việt (chuyển "Đường" thành "Duong")
+- **Đa thuật toán**: Kết hợp fuzzy matching + Levenshtein distance
+- **Cache thông minh**: Học từ lựa chọn của người dùng để đẩy kết quả liên quan lên đầu
+- **Chịu lỗi gõ**: Xử lý lỗi gõ phím thường gặp
+- **Thread-Safe**: An toàn khi truy cập đồng thời
 
-## Architecture
+## Kiến trúc
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      Searcher                           │
 ├─────────────────────────────────────────────────────────┤
-│  Originals[]     - Original file paths                  │
-│  Normalized[]    - Normalized for fuzzy search          │
-│  FilenamesOnly[] - Filenames only for Levenshtein       │
-│  Cache           - Query cache for boosting             │
+│  Originals[]     - Đường dẫn file gốc                   │
+│  Normalized[]    - Đã chuẩn hóa cho fuzzy search        │
+│  FilenamesOnly[] - Chỉ tên file cho Levenshtein         │
+│  Cache           - Cache query để boost kết quả         │
 └─────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -36,32 +36,31 @@ FuzzyVN is a Vietnamese-optimized fuzzy file finder library for Go. It combines 
 │                    QueryCache                           │
 ├─────────────────────────────────────────────────────────┤
 │  entries{}       - query → []CacheEntry                 │
-│  queryOrder[]    - LRU ordering                         │
-│  maxQueries      - Maximum cached queries (100)         │
-│  maxPerQuery     - Max files per query (5)              │
-│  boostScore      - Boost multiplier (5000)              │
+│  queryOrder[]    - Thứ tự LRU                           │
+│  maxQueries      - Tối đa queries cache (100)           │
+│  maxPerQuery     - Tối đa files mỗi query (5)           │
+│  boostScore      - Hệ số boost (5000)                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Search Flow
+## Luồng tìm kiếm
 
 ```
-User Query
+Query người dùng
     │
     ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │ Fuzzy Match  │ +  │ Levenshtein  │ +  │ Cache Boost  │
-│ (substring)  │    │ (typo fix)   │    │ (history)    │
+│ (substring)  │    │ (sửa lỗi gõ) │    │ (lịch sử)    │
 └──────────────┘    └──────────────┘    └──────────────┘
     │                      │                    │
     └──────────────────────┼────────────────────┘
                            ▼
-                    Merged Results
+                    Gộp kết quả
                            │
                            ▼
-                    Sort by Score
+                    Sắp xếp theo điểm
                            │
                            ▼
-                    Top 20 Results
+                    Top 20 kết quả
 ```
-

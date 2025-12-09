@@ -1,27 +1,32 @@
-# Quick Start
+# Bắt đầu nhanh
 
-## Basic Usage
+## Cách dùng cơ bản
 
 ```go
 package main
 
 import (
     "fmt"
+    "io/fs"
+    "path/filepath"
+    
     "github.com/verse91/fuzzyvn"
 )
 
 func main() {
-    // 1. Prepare file list
-    files := []string{
-        "/home/user/documents/báo_cáo_tháng_1.pdf",
-        "/home/user/documents/hợp_đồng_2024.docx",
-        "/home/user/music/Sơn Tùng - Chạy Ngay Đi.mp3",
-    }
+    // 1. Quét thư mục lấy danh sách file
+    var files []string
+    filepath.WalkDir("/home/user/documents", func(path string, d fs.DirEntry, err error) error {
+        if err == nil && !d.IsDir() {
+            files = append(files, path)
+        }
+        return nil
+    })
 
-    // 2. Create searcher
+    // 2. Tạo searcher
     searcher := fuzzyvn.NewSearcher(files)
 
-    // 3. Search
+    // 3. Tìm kiếm (hỗ trợ tiếng Việt không dấu)
     results := searcher.Search("bao cao")
     
     for _, r := range results {
@@ -30,32 +35,96 @@ func main() {
 }
 ```
 
-## With Caching
+## Sử dụng Cache
 
 ```go
-// Search and get results
+// Tìm kiếm và lấy kết quả
 results := searcher.Search("son tung")
 
-// User selects a file -> record it
+// Người dùng chọn file -> ghi nhận vào cache
 selectedFile := results[0]
 searcher.RecordSelection("son tung", selectedFile)
 
-// Next time user searches similar query, 
-// the selected file will be boosted to top
-results = searcher.Search("sontung")  // typo still works
-results = searcher.Search("son")      // partial still works
+// Lần sau tìm query tương tự, file đã chọn sẽ được đẩy lên đầu
+results = searcher.Search("sontung")  // gõ sai vẫn được
+results = searcher.Search("son")      // gõ một phần vẫn được
 ```
 
-## Preserving Cache Across Rebuilds
+## Giữ Cache khi rebuild
 
 ```go
-// Get cache before rebuild
+// Lấy cache trước khi rebuild
 cache := searcher.GetCache()
 
-// Rebuild with new file list (e.g., after file system changes)
+// Rebuild với danh sách file mới (vd: sau khi file system thay đổi)
 newFiles := scanDirectory("/home/user")
 searcher = fuzzyvn.NewSearcherWithCache(newFiles, cache)
 
-// Cache is preserved!
+// Cache vẫn được giữ nguyên!
+```
+
+## Quét thư mục với filter
+
+```go
+// Chỉ lấy một số đuôi file
+func scanWithFilter(root string, extensions []string) []string {
+    var files []string
+    extMap := make(map[string]bool)
+    for _, ext := range extensions {
+        extMap[ext] = true
+    }
+
+    filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+        if err != nil || d.IsDir() {
+            return nil
+        }
+        
+        ext := filepath.Ext(path)
+        if len(extensions) == 0 || extMap[ext] {
+            files = append(files, path)
+        }
+        return nil
+    })
+
+    return files
+}
+
+// Sử dụng
+files := scanWithFilter("/home/user", []string{".go", ".md", ".txt"})
+searcher := fuzzyvn.NewSearcher(files)
+```
+
+## Bỏ qua thư mục
+
+```go
+func scanIgnore(root string, ignoreDirs []string) []string {
+    var files []string
+    ignore := make(map[string]bool)
+    for _, dir := range ignoreDirs {
+        ignore[dir] = true
+    }
+
+    filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+        if err != nil {
+            return nil
+        }
+        
+        // Bỏ qua thư mục trong danh sách ignore
+        if d.IsDir() && ignore[d.Name()] {
+            return filepath.SkipDir
+        }
+        
+        if !d.IsDir() {
+            files = append(files, path)
+        }
+        return nil
+    })
+
+    return files
+}
+
+// Sử dụng
+files := scanIgnore("/project", []string{"node_modules", ".git", "vendor"})
+searcher := fuzzyvn.NewSearcher(files)
 ```
 

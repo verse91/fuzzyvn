@@ -1,23 +1,21 @@
-# Installation
+# Cài đặt
 
-## Requirements
+## Yêu cầu
 
-- Go 1.18 or later
+- Go 1.18 trở lên
 
-## Install
+## Cài đặt
 
 ```bash
 go get github.com/verse91/fuzzyvn
 ```
 
-## Dependencies
+## Thư viện phụ thuộc
 
-FuzzyVN uses the following dependencies:
-
-| Package | Purpose |
-|---------|---------|
-| `github.com/sahilm/fuzzy` | Fuzzy string matching |
-| `golang.org/x/text` | Unicode normalization |
+| Package | Mục đích |
+|---------|----------|
+| `github.com/sahilm/fuzzy` | Tìm kiếm chuỗi mờ |
+| `golang.org/x/text` | Chuẩn hóa Unicode |
 
 ## Import
 

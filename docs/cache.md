@@ -1,94 +1,93 @@
-# Cache System
+# Hệ thống Cache
 
-The cache system learns from user behavior to improve search results over time.
+Hệ thống cache học từ hành vi người dùng để cải thiện kết quả tìm kiếm theo thời gian.
 
-## How It Works
+## Cách hoạt động
 
-### Recording Selections
+### Ghi nhận lựa chọn
 
-When a user selects a file from search results:
+Khi người dùng chọn file từ kết quả tìm kiếm:
 
 ```go
 searcher.RecordSelection("main server", "/project/src/main_server.go")
 ```
 
-The cache stores:
-- Query: `"main server"` (normalized)
+Cache lưu:
+- Query: `"main server"` (đã chuẩn hóa)
 - File: `/project/src/main_server.go`
-- Count: 1 (increments on repeated selections)
+- Số lần: 1 (tăng khi chọn lại)
 
-### Query Similarity
+### Độ tương đồng Query
 
-The cache doesn't require exact query matches. It uses similarity scoring:
+Cache không yêu cầu query khớp chính xác. Nó dùng điểm tương đồng:
 
-| Match Type | Score | Example |
-|------------|-------|---------|
-| Exact match | 100 | `"main"` = `"main"` |
-| Substring (query in cached) | 80 | `"main"` ⊂ `"main server"` |
-| Prefix match | 70-100 | `"mai"` → `"main"` |
+| Loại khớp | Điểm | Ví dụ |
+|-----------|------|-------|
+| Khớp chính xác | 100 | `"main"` = `"main"` |
+| Substring (query nằm trong cache) | 80 | `"main"` ⊂ `"main server"` |
+| Prefix (tiền tố) | 70-100 | `"mai"` → `"main"` |
 | Reverse prefix | 50-80 | `"main server"` → `"main"` |
-| Word overlap | 50-95 | `"server main"` ↔ `"main server"` |
-| Fuzzy (≤30% errors) | 30-60 | `"mian"` ≈ `"main"` |
+| Từ chung | 50-95 | `"server main"` ↔ `"main server"` |
+| Fuzzy (≤30% lỗi) | 30-60 | `"mian"` ≈ `"main"` |
 
-### Boost Calculation
+### Tính điểm Boost
 
 ```
 boost = boostScore × similarity × selectCount / 100
 ```
 
-Default `boostScore` is 5000, so:
-- Exact match, selected 1 time: `5000 × 100 × 1 / 100 = 5000`
-- Exact match, selected 3 times: `5000 × 100 × 3 / 100 = 15000`
-- Prefix match (80%), selected 2 times: `5000 × 80 × 2 / 100 = 8000`
+Mặc định `boostScore` là 5000, nên:
+- Khớp chính xác, chọn 1 lần: `5000 × 100 × 1 / 100 = 5000`
+- Khớp chính xác, chọn 3 lần: `5000 × 100 × 3 / 100 = 15000`
+- Prefix match (80%), chọn 2 lần: `5000 × 80 × 2 / 100 = 8000`
 
-## Configuration
+## Cấu hình
 
-### Max Queries
+### Số query tối đa
 
 ```go
 cache := searcher.GetCache()
-cache.SetMaxQueries(200)  // Default: 100
+cache.SetMaxQueries(200)  // Mặc định: 100
 ```
 
-When limit is exceeded, oldest queries are evicted (LRU).
+Khi vượt giới hạn, query cũ nhất bị loại bỏ (LRU).
 
-### Max Files Per Query
+### Số file tối đa mỗi query
 
-Each query stores up to 5 files by default. When exceeded, the file with lowest `selectCount` is removed.
+Mỗi query lưu tối đa 5 file. Khi vượt, file có `selectCount` thấp nhất bị xóa.
 
-### Boost Score
+### Điểm Boost
 
 ```go
-cache.SetBoostScore(10000)  // Default: 5000
+cache.SetBoostScore(10000)  // Mặc định: 5000
 ```
 
-Higher values make cached results more prominent.
+Giá trị cao hơn làm kết quả từ cache nổi bật hơn.
 
-## LRU Eviction
+## Loại bỏ LRU
 
-Queries are ordered by recency:
-- Each selection moves the query to "most recent"
-- When `maxQueries` is exceeded, oldest queries are removed
+Query được sắp xếp theo thời gian gần đây:
+- Mỗi lần chọn đưa query lên "gần đây nhất"
+- Khi vượt `maxQueries`, query cũ nhất bị xóa
 
-## Persistence
+## Lưu trữ
 
-The cache is in-memory only. To persist across restarts:
+Cache chỉ lưu trong bộ nhớ. Để lưu qua các lần khởi động lại:
 
 ```go
-// Before shutdown
+// Trước khi tắt
 cache := searcher.GetCache()
-// Serialize cache.entries and cache.queryOrder to JSON/gob
+// Serialize cache.entries và cache.queryOrder ra JSON/gob
 
-// On startup
-// Deserialize and create new cache
+// Khi khởi động
+// Deserialize và tạo cache mới
 searcher = fuzzyvn.NewSearcherWithCache(files, loadedCache)
 ```
 
 ## Thread Safety
 
-All cache operations are protected by `sync.RWMutex`:
-- Read operations: `RLock`
-- Write operations: `Lock`
+Mọi thao tác cache được bảo vệ bởi `sync.RWMutex`:
+- Thao tác đọc: `RLock`
+- Thao tác ghi: `Lock`
 
-Safe for concurrent access from multiple goroutines.
-
+An toàn khi truy cập đồng thời từ nhiều goroutine.
