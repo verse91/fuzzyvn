@@ -1,16 +1,27 @@
 # FuzzyVN (Fuzzy file finder)
 
 FuzzyVN là thư viện tìm kiếm file bằng fuzzy finder được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác.
+
+## Demo
 <div align="center">
   
-<img width="70%" width="1414" height="1425" alt="image" src="https://github.com/user-attachments/assets/9266cc9a-1b06-491f-ab17-2f0cbd9dcabb" />
+  <img width="1428" height="609" alt="image" src="https://github.com/user-attachments/assets/0fbbeda1-2d69-4308-aaf3-81190b1c0285" />
 
-<img width="70%" width="1379" height="1406" alt="image" src="https://github.com/user-attachments/assets/d874a0a8-8642-4d3b-a35c-2c44bb0d9647" />
+  <img width="70%" width="1334" height="1051" alt="image" src="https://github.com/user-attachments/assets/dd257e95-942b-4045-a722-eaa075299f92" />
+  
+  <i>Search: Về mùa thu mãi mãi</i>
+  <br></br>
+  <img width="70%" width="1379" height="1406" alt="image" src="https://github.com/user-attachments/assets/d874a0a8-8642-4d3b-a35c-2c44bb0d9647" />
+  
+  <i>Hỗ trợ cache</i>
+  <br></br>
+  <img width="70%" width="1320" height="630" alt="image" src="https://github.com/user-attachments/assets/c26711db-c3cd-4d44-b03a-3915b05a03ee" />
 
-<img width="70%" width="1320" height="630" alt="image" src="https://github.com/user-attachments/assets/c26711db-c3cd-4d44-b03a-3915b05a03ee" />
+  <i>Lịch sử tìm kiếm và lịch sử kết quả</i>
 </div>
 
-<div align="center"><i>Bạn có thể test qua phần demo</i></div>
+> [!TIP]
+> Bạn có thể test qua phần [demo](./demo/)
 
 ## Mục lục
 
