@@ -1,6 +1,14 @@
-# Tài liệu FuzzyVN
+# FuzzyVN (Fuzzy file finder)
 
-FuzzyVN là thư viện tìm kiếm file mờ (fuzzy finder) được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác.
+FuzzyVN là thư viện tìm kiếm file bằng fuzzy finder được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác.
+<div align="center">
+  
+<img width="70%" width="1414" height="1425" alt="image" src="https://github.com/user-attachments/assets/9266cc9a-1b06-491f-ab17-2f0cbd9dcabb" />
+
+<img width="70%" width="1379" height="1406" alt="image" src="https://github.com/user-attachments/assets/d874a0a8-8642-4d3b-a35c-2c44bb0d9647" />
+
+<img width="70%" width="1320" height="630" alt="image" src="https://github.com/user-attachments/assets/c26711db-c3cd-4d44-b03a-3915b05a03ee" />
+</div>
 
 ## Mục lục
 
