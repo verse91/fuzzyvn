@@ -1,47 +1,67 @@
-# Fuzzy Search hỗ trợ tiếng Việt
-## Install
-```
-go get github.com/verse91/fuzzyvn
-```
-## Example
-```golang
-        // Đọc file list.txt ở nhánh master
-	file, err := os.Open("list.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
+# FuzzyVN Documentation
 
-	var items []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		items = append(items, scanner.Text())
-	}
+FuzzyVN is a Vietnamese-optimized fuzzy file finder library for Go. It combines multiple search algorithms with intelligent caching to provide fast, accurate file search results.
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
+## Table of Contents
 
-	// Nhập từ khóa
-	var query string
-	fmt.Print("Nhập từ khóa: ")
-	fmt.Scanln(&query)
+- [Installation](./docs/installation.md)
+- [Quick Start](./docs/quickstart.md)
+- [API Reference](./docs/api.md)
+- [Cache System](./docs/cache.md)
+- [Search Algorithm](./docs/algorithm.md)
+- [Examples](./docs/examples.md)
 
-	// Tìm kiếm
-	results := fuzzyvn.Find(query, items)
+## Features
 
-	// In kết quả
-	fmt.Println("Kết quả tìm được:")
-	for _, res := range results {
-		fmt.Println(res)
-	}
+- **Vietnamese Support**: Handles Vietnamese diacritics (converts "Đường" to "Duong")
+- **Multi-Algorithm Search**: Combines fuzzy matching + Levenshtein distance
+- **Smart Caching**: Learns from user selections to boost relevant results
+- **Typo Tolerance**: Handles common typing errors
+- **Thread-Safe**: Safe for concurrent access
+
+## Architecture
+
 ```
-## Output
+┌─────────────────────────────────────────────────────────┐
+│                      Searcher                           │
+├─────────────────────────────────────────────────────────┤
+│  Originals[]     - Original file paths                  │
+│  Normalized[]    - Normalized for fuzzy search          │
+│  FilenamesOnly[] - Filenames only for Levenshtein       │
+│  Cache           - Query cache for boosting             │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                    QueryCache                           │
+├─────────────────────────────────────────────────────────┤
+│  entries{}       - query → []CacheEntry                 │
+│  queryOrder[]    - LRU ordering                         │
+│  maxQueries      - Maximum cached queries (100)         │
+│  maxPerQuery     - Max files per query (5)              │
+│  boostScore      - Boost multiplier (5000)              │
+└─────────────────────────────────────────────────────────┘
 ```
-Nhập từ khóa: vinh 
-Kết quả tìm được:
-59. Trà Vinh
-62. Vĩnh Phúc
-61. Vĩnh Long
-64. va in gh -> bao gồm "v i n h"
+
+## Search Flow
+
 ```
+User Query
+    │
+    ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Fuzzy Match  │ +  │ Levenshtein  │ +  │ Cache Boost  │
+│ (substring)  │    │ (typo fix)   │    │ (history)    │
+└──────────────┘    └──────────────┘    └──────────────┘
+    │                      │                    │
+    └──────────────────────┼────────────────────┘
+                           ▼
+                    Merged Results
+                           │
+                           ▼
+                    Sort by Score
+                           │
+                           ▼
+                    Top 20 Results
+```
+
