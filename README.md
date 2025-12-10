@@ -1,6 +1,20 @@
-# FuzzyVN
+<div align="center">
+  <h1>FuzzyVN</h1>
 
-FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy search được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác.
+  [![License: 0BSD](https://img.shields.io/badge/License-0BSD-blue?style=for-the-badge&logo=github&logoColor=white)](./LICENSE.md)
+  [![Status](https://img.shields.io/badge/status-beta-yellow?style=for-the-badge&logo=github&logoColor=white)]()
+  [![Documentation](https://img.shields.io/badge/docs-available-brightgreen?style=for-the-badge&logo=github&logoColor=white)](./fuzzyvn.go)
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge&logo=github&logoColor=white)](./.github/CONTRIBUTING.md)
+</div>
+<p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy search được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
+
+> [!IMPORTANT]
+> Package này chỉ nên dùng ở local hoặc side project.  
+> Vui lòng không được sử dụng trong production.  
+> Mình sẽ không chịu bất kỳ trách nhiệm nào khi bạn sử dụng nó.
+
+<br>
+
 <div align="center">
 
 <img width="70%" width="1414" height="1425" alt="image" src="https://github.com/user-attachments/assets/9266cc9a-1b06-491f-ab17-2f0cbd9dcabb" />
@@ -12,151 +26,161 @@ FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy se
 
 <div align="center"><i>Bạn có thể test qua phần demo</i></div>
 
-## Mục lục
-
-- [Cài đặt](./docs/installation.md)
-- [Bắt đầu nhanh](./docs/quickstart.md)
-- [API](./docs/api.md)
-- [Hệ thống Cache](./docs/cache.md)
-- [Thuật toán](./docs/algorithm.md)
-- [Ví dụ](./docs/examples.md)
-- [Test](./docs/test.md)
-
 ## Tính năng
 
-- **Hỗ trợ tiếng Việt**: Xử lý dấu tiếng Việt (chuyển "Đường" thành "Duong")
-- **Đa thuật toán**: Kết hợp fuzzy matching + Levenshtein distance
-- **Cache thông minh**: Học từ lựa chọn của người dùng để đẩy kết quả liên quan lên đầu
-- **Chịu lỗi gõ**: Xử lý lỗi gõ phím thường gặp
-- **Thread-Safe**: An toàn khi truy cập đồng thời
+- **Tối ưu cho tiếng Việt**
+- **Đa thuật toán**
+- **Hệ thống cache**
+- **Xử lí lỗi gõ**
+- **Thread-Safe**
+- **Xử lý parallel cho dataset lớn**
 
-## Kiến trúc
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Searcher                           │
-├─────────────────────────────────────────────────────────┤
-│  Originals[]     - Đường dẫn file gốc                   │
-│  Normalized[]    - Đã chuẩn hóa cho fuzzy search        │
-│  FilenamesOnly[] - Chỉ tên file cho Levenshtein         │
-│  Cache           - Cache query để boost kết quả         │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                    QueryCache                           │
-├─────────────────────────────────────────────────────────┤
-│  entries{}       - query → []CacheEntry                 │
-│  queryOrder[]    - Thứ tự LRU                           │
-│  maxQueries      - Tối đa queries cache (100)           │
-│  maxPerQuery     - Tối đa files mỗi query (5)           │
-│  boostScore      - Hệ số boost (5000)                   │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Luồng tìm kiếm
-
-```
-Query người dùng
-    │
-    ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Fuzzy Match  │ +  │ Levenshtein  │ +  │ Cache Boost  │
-│ (substring)  │    │ (sửa lỗi gõ) │    │ (lịch sử)    │
-└──────────────┘    └──────────────┘    └──────────────┘
-    │                      │                    │
-    └──────────────────────┼────────────────────┘
-                           ▼
-                    Gộp kết quả
-                           │
-                           ▼
-                    Sắp xếp theo điểm
-                           │
-                           ▼
-                    Top 20 kết quả
-```
-## Benchmark
-- Lưu ý rằng benchmark này chỉ thực hiện trên một laptop bình thường
+## Cài đặt
 
 ```bash
-> go test -bench=BenchmarkSearch -benchmem
+go get github.com/verse91/fuzzyvn
+```
+
+**Yêu cầu**: Go 1.21+
+
+**Dependencies**: Chỉ cần `golang.org/x/text` để normalize tiếng Việt
+
+## Benchmark
+> [!NOTE]
+> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)
+
+```bash
 goos: linux
 goarch: amd64
 pkg: github.com/verse91/fuzzyvn
 cpu: AMD Ryzen 7 PRO 7840HS w/ Radeon 780M Graphics
-BenchmarkSearch_RealWorld/Search/50k_Files-16         	     100	  14143146 ns/op	26648972 B/op	  101295 allocs/op
-BenchmarkSearch_RealWorld/Search/100k_Files-16        	      55	  30893400 ns/op	53361041 B/op	  201616 allocs/op
-BenchmarkSearch_RealWorld/Search/100k_Files_Typo-16   	      45	  30555131 ns/op	52723123 B/op	  201543 allocs/op
-BenchmarkNewSearcher-16                               	     243	   4881946 ns/op	17584984 B/op	   13005 allocs/op
-BenchmarkSearch/100_files-16                          	   20391	     57989 ns/op	   56752 B/op	     486 allocs/op
-BenchmarkSearch/1000_files-16                         	    3572	    361193 ns/op	  360945 B/op	    2368 allocs/op
-BenchmarkSearch/10000_files-16                        	     339	   3422702 ns/op	 3393614 B/op	   20491 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16        	    1636	    615279 ns/op	  503050 B/op	    2309 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16                	    1813	    617205 ns/op	  501912 B/op	    2305 allocs/op
-BenchmarkSearchWithCache-16                                      	    3328	    378626 ns/op	  361206 B/op	    2372 allocs/op
-BenchmarkNormalize-16                                            	   66108	     16992 ns/op	   46152 B/op	      39 allocs/op
-BenchmarkLevenshteinRatio-16                                     	 2519466	       423.9 ns/op	     320 B/op	       4 allocs/op
-BenchmarkRecordSelection-16                                      	  441776	      2730 ns/op	    8790 B/op	       8 allocs/op
-BenchmarkGetBoostScores-16                                       	   30610	     38311 ns/op	   25112 B/op	     311 allocs/op
+BenchmarkSearch_RealWorld/Search/50k_Files-16         	     100	  11541861 ns/op	26649531 B/op	  101294 allocs/op
+BenchmarkSearch_RealWorld/Search/100k_Files-16        	      43	  25858528 ns/op	53359194 B/op	  201614 allocs/op
+BenchmarkSearch_RealWorld/Search/100k_Files_Typo-16   	      45	  24787436 ns/op	52730781 B/op	  201544 allocs/op
+BenchmarkNewSearcher-16                               	     259	   3994017 ns/op	17584983 B/op	   13005 allocs/op
+BenchmarkSearch/100_files-16                          	   21996	     50108 ns/op	   56752 B/op	     486 allocs/op
+BenchmarkSearch/1000_files-16                         	    4474	    293213 ns/op	  360954 B/op	    2368 allocs/op
+BenchmarkSearch/10000_files-16                        	     403	   2807728 ns/op	 3393600 B/op	   20490 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16        	    2020	    505040 ns/op	  502877 B/op	    2309 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16                	    2494	    512747 ns/op	  501508 B/op	    2305 allocs/op
+BenchmarkSearchWithCache-16                                      	    4470	    272873 ns/op	  361264 B/op	    2372 allocs/op
+BenchmarkNormalize-16                                            	   87124	     13495 ns/op	   46152 B/op	      39 allocs/op
+BenchmarkLevenshteinRatio-16                                     	 3669404	       350.2 ns/op	     320 B/op	       4 allocs/op
+BenchmarkRecordSelection-16                                      	  522398	      2242 ns/op	    8789 B/op	       8 allocs/op
+BenchmarkGetBoostScores-16                                       	   34321	     33461 ns/op	   25112 B/op	     311 allocs/op
 PASS
-ok  	github.com/verse91/fuzzyvn	27.258s
+ok  	github.com/verse91/fuzzyvn	24.808s
 ```
 
-## Kết quả benchmark
+| Operation | Time | Memory | Notes |
+|-----------|------|--------|-------|
+| NewSearcher | 4.9ms | 17.6MB | Index 10k files |
+| Search 100 files | 58µs | 57KB | |
+| Search 1K files | 361µs | 361KB | |
+| Search 10K files | 3.4ms | 3.4MB | |
+| Search 50K files | 14.1ms | 26.6MB | Parallel |
+| Search 100K files | 30.9ms | 53.4MB | Parallel |
+| Tiếng Việt có dấu | 615µs | 503KB | |
+| Tiếng Việt không dấu | 617µs | 502KB | |
+| Search với Cache | 379µs | 361KB | Cache hit boost |
+| Normalize | 17µs | 46KB | |
+| LevenshteinRatio | 424ns | 320B | |
 
-| Benchmark                      | Time   | Memory |
-| ------------------------------ | ------ | ------ |
-| **NewSearcher**                | 4.9ms  | 17.6MB |
-| **Search 100 files**           | 58µs   | 57KB   |
-| **Search 1,000 files**         | 361µs  | 361KB  |
-| **Search 10,000 files**        | 3.4ms  | 3.4MB  |
-| **Search 50,000 files (Mới)**  | 14.1ms | 26.6MB |
-| **Search 100,000 files (Mới)** | 30.9ms | 53.4MB |
-| **Tiếng Việt có dấu**          | 615µs  | 503KB  |
-| **Tiếng Việt không dấu**       | 617µs  | 502KB  |
-| **Search với Cache**           | 379µs  | 361KB  |
-| **Normalize**                  | 17µs   | 46KB   |
-| **LevenshteinRatio**           | 424ns  | 320B   |
+```bash
+go test -bench=BenchmarkSearch -benchmem
+```
+hoặc
+```bash
+make bench
+```
 
+### Luồng tìm kiếm
 
+```
+              Query người dùng
+                      ↓
+        Normalize (bỏ dấu, lowercase)
+                      ↓
+┌─────────────┬──────────────┬─────────────┐
+│ Fuzzy Match │ Levenshtein  │ Cache Boost │
+│ (substring) │ (sửa lỗi gõ) │ (lịch sử)   │
+└─────────────┴──────────────┴─────────────┘
+                      ↓
+              Tính điểm tổng hợp
+                      ↓
+               Sắp xếp theo điểm
+                      ↓
+                Top 20 kết quả
+```
 
-# Cách dùng
+## Kiến trúc
 
-## Tìm kiếm file cơ bản
+```
+┌─────────────────────────────────────────┐
+│                Searcher                 │
+├─────────────────────────────────────────┤
+│ Originals[]     - File paths gốc        │
+│ Normalized[]    - Đã normalize          │
+│ FilenamesOnly[] - Chỉ tên file          │
+│ Cache          - QueryCache             │
+└─────────────────────────────────────────┘
+                     ↓
+┌─────────────────────────────────────────┐
+│                QueryCache               │
+├─────────────────────────────────────────┤
+│ entries{}      - query → CacheEntry[]   │
+│ queryOrder[]   - LRU tracking           │
+│ maxQueries     - Limit (100)            │
+│ maxPerQuery    - Files per query (5)    │
+│ boostScore     - Boost factor (5000)    │
+└─────────────────────────────────────────┘
+```
+
+## Cách dùng
+
+### Ví dụ cơ bản
 
 ```go
 package main
 
 import (
     "fmt"
-    "io/fs"
-    "path/filepath"
-
     "github.com/verse91/fuzzyvn"
 )
 
 func main() {
-    // Quét thư mục
-    var files []string
-    filepath.WalkDir("/home/user", func(path string, d fs.DirEntry, err error) error {
-        if err == nil && !d.IsDir() {
-            files = append(files, path)
-        }
-        return nil
-    })
-
-    // Tạo searcher
+    // Tạo searcher với danh sách file
+    files := []string{
+        "/home/user/Documents/Báo_cáo_tháng_1.pdf",
+        "/home/user/Music/Sơn_Tùng_MTP.mp3",
+        "/home/user/Code/main.go",
+    }
     searcher := fuzzyvn.NewSearcher(files)
 
     // Tìm kiếm
-    results := searcher.Search("readme")
-    for _, r := range results {
-        fmt.Println(r)
+    results := searcher.Search("bao cao")
+    for _, path := range results {
+        fmt.Println(path)
     }
+    // Output: /home/user/Documents/Báo_cáo_tháng_1.pdf
 }
 ```
 
-## HTTP Server với Cache
+### Ví dụ với Cache
+
+```go
+// Người dùng tìm kiếm
+results := searcher.Search("main")
+
+// Người dùng chọn file
+selectedFile := results[0]
+searcher.RecordSelection("main", selectedFile)
+
+// Lần tìm kiếm sau, file này được ưu tiên
+results = searcher.Search("mai")  // Gõ sai, vẫn lên đầu nhờ cache
+```
+
+### Ví dụ với HTTP Server
 
 ```go
 package main
@@ -165,7 +189,6 @@ import (
     "encoding/json"
     "net/http"
     "sync"
-
     "github.com/verse91/fuzzyvn"
 )
 
@@ -176,11 +199,11 @@ var (
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
     query := r.URL.Query().Get("q")
-
+    
     mu.RLock()
     results := searcher.Search(query)
     mu.RUnlock()
-
+    
     json.NewEncoder(w).Encode(results)
 }
 
@@ -190,143 +213,249 @@ func selectHandler(w http.ResponseWriter, r *http.Request) {
         Path  string `json:"path"`
     }
     json.NewDecoder(r.Body).Decode(&req)
-
-    mu.RLock()
+    
+    mu.Lock()
     searcher.RecordSelection(req.Query, req.Path)
-    mu.RUnlock()
-
+    mu.Unlock()
+    
     w.WriteHeader(http.StatusOK)
 }
 
 func main() {
+    // Scan và index files
     files := scanDirectory("/data")
     searcher = fuzzyvn.NewSearcher(files)
-
-    http.HandleFunc("/search", searchHandler)
-    http.HandleFunc("/select", selectHandler)
+    
+    http.HandleFunc("/api/search", searchHandler)
+    http.HandleFunc("/api/select", selectHandler)
     http.ListenAndServe(":8080", nil)
 }
 ```
 
+## Tài liệu
 
-## Tùy chỉnh điểm số
+### API chính
 
-```go
-// Lấy cache và tùy chỉnh
-cache := searcher.GetCache()
-
-// Tăng boost cho kết quả cache
-cache.SetBoostScore(10000)  // Mặc định: 5000
-
-// Giữ nhiều query hơn trong cache
-cache.SetMaxQueries(500)    // Mặc định: 100
-```
-
-## Rebuild Index
+#### `NewSearcher(items []string) *Searcher`
+Tạo searcher mới từ danh sách file paths
 
 ```go
-// File watcher phát hiện thay đổi
-func onFileSystemChange() {
-    // Giữ lại cache
-    cache := searcher.GetCache()
-
-    // Quét lại file
-    newFiles := scanDirectory("/data")
-
-    // Rebuild với cache cũ
-    mu.Lock()
-    searcher = fuzzyvn.NewSearcherWithCache(newFiles, cache)
-    mu.Unlock()
-}
+searcher := fuzzyvn.NewSearcher(files)
 ```
 
-## Lấy hoạt động gần đây
+#### `Search(query string) []string`
+Tìm kiếm và trả về top 20 kết quả phù hợp nhất (hardcode 20)
+
+```go
+results := searcher.Search("readme")
+```
+
+#### `RecordSelection(query, filePath string)`
+Lưu lại file mà người dùng đã chọn để cải thiện kết quả tương lai
+
+```go
+searcher.RecordSelection("main", "/project/main.go")
+```
+
+#### `GetCache() *QueryCache`
+Lấy cache object để tùy chỉnh hoặc xem thống kê
 
 ```go
 cache := searcher.GetCache()
-
-// Lấy query tìm kiếm gần đây
+cache.SetBoostScore(10000)      // Tăng boost
+cache.SetMaxQueries(500)        // Lưu nhiều query hơn
 recentQueries := cache.GetRecentQueries(10)
-// ["main.go", "config", "readme", ...]
-
-// Lấy file đã chọn gần đây
-recentFiles := cache.GetAllRecentFiles(5)
-// ["/project/main.go", "/project/config.yaml", ...]
-
-// Lấy file cache cho query hiện tại
-cachedForQuery := cache.GetCachedFiles("main", 5)
-// File đã chọn trước đó cho "main" hoặc query tương tự
 ```
 
-## Ví dụ tiếng Việt
+### QueryCache Methods
 
 ```go
-searcher := fuzzyvn.NewSearcher([]string{
-    "/docs/Báo_cáo_tháng_1.pdf",
-    "/docs/Hợp_đồng_thuê_nhà.docx",
-    "/music/Sơn Tùng - Lạc Trôi.mp3",
-})
+cache := searcher.GetCache()
 
-// Tất cả các query này đều hoạt động:
-searcher.Search("bao cao")      // khớp "Báo_cáo"
-searcher.Search("hop dong")     // khớp "Hợp_đồng"
-searcher.Search("son tung")     // khớp "Sơn Tùng"
-searcher.Search("lac troi")     // khớp "Lạc Trôi"
+// Cấu hình
+cache.SetBoostScore(score int)        // Mặc định: 5000
+cache.SetMaxQueries(n int)            // Mặc định: 100
 
-// Gõ sai cũng được:
-searcher.Search("bao coa")      // lỗi gõ: "coa" → "cao"
-searcher.Search("sontung")      // thiếu dấu cách
-searcher.Search("sont ung")     // dấu cách sai chỗ
+// Thống kê
+cache.GetRecentQueries(limit int) []string
+cache.GetAllRecentFiles(limit int) []string
+cache.GetCachedFiles(query string, limit int) []string
+cache.Size() int
+cache.Clear()
 ```
 
-## Quét thư mục nâng cao
+### Utility Functions
 
 ```go
-// Quét với filter extension
-func scanWithExtensions(root string, exts []string) []string {
-    var files []string
-    extMap := make(map[string]bool)
-    for _, ext := range exts {
-        extMap[ext] = true
-    }
+// Normalize string (bỏ dấu tiếng Việt)
+normalized := fuzzyvn.Normalize("Tiếng Việt")
+// Output: "Tieng Viet"
 
-    filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-        if err != nil || d.IsDir() {
-            return nil
-        }
-        if len(exts) == 0 || extMap[filepath.Ext(path)] {
-            files = append(files, path)
-        }
-        return nil
-    })
-    return files
-}
+// Tính khoảng cách Levenshtein
+distance := fuzzyvn.LevenshteinRatio("hello", "helo")
+// Output: 1
 
-// Quét và bỏ qua thư mục
-func scanIgnoreDirs(root string, ignore []string) []string {
-    var files []string
-    ignoreMap := make(map[string]bool)
-    for _, dir := range ignore {
-        ignoreMap[dir] = true
-    }
-
-    filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-        if err != nil {
-            return nil
-        }
-        if d.IsDir() && ignoreMap[d.Name()] {
-            return filepath.SkipDir
-        }
-        if !d.IsDir() {
-            files = append(files, path)
-        }
-        return nil
-    })
-    return files
-}
-
-// Sử dụng
-files := scanWithExtensions("/project", []string{".go", ".md"})
-files = scanIgnoreDirs("/project", []string{"node_modules", ".git", "vendor"})
+// Fuzzy find trong slice
+matches := fuzzyvn.FuzzyFind("pattern", targets)
 ```
 
+## Cách hoạt động
+
+### Điểm số (Scoring)
+
+Mỗi kết quả nhận điểm từ nhiều nguồn:
+
+1. **Fuzzy Score** (0-1000+)
+   - Match ký tự: +16 mỗi ký tự
+   - Ký tự đầu tiên: +24
+   - Match liên tiếp: +28
+   - Sau word boundary: +20
+   - Sau slash: +24
+   - CamelCase: +16
+   - Gap penalty: -2 mỗi ký tự
+
+2. **Word Bonus** (0-9000+)
+   - +3000 cho mỗi từ khớp hoàn toàn
+   - Cho phép 1 lỗi với từ ≥3 ký tự
+
+3. **Levenshtein Score** (0-10000)
+   - Cho phép ~33% lỗi
+   - 10000 - (lỗi × 100)
+
+4. **Cache Boost** (0-10000+)
+   - Dựa trên số lần chọn
+   - Độ tương đồng query
+   - Công thức: `(boostScore × similarity × selectCount) / 100`
+
+### Cache System
+
+Cache hoạt động theo cơ chế LRU (Least Recently Used):
+
+```go
+// Mỗi query lưu tối đa 5 files
+// Mỗi file có selectCount (số lần chọn)
+// Query có độ tương đồng cao được tận dụng cache
+```
+
+**Ví dụ**:
+- User search `"màn hình"` → chọn `"dell-monitor.pdf"`
+- User search `"man hinh"` → `"dell-monitor.pdf"` lên top (similarity 95%)
+- User search `"màn hình dell"` → vẫn boost (contains)
+
+## Các trường hợp sử dụng
+
+### 1. File Explorer / Launcher
+
+```go
+// Quét thư mục home
+files := scanDirectory("/home/user")
+searcher := fuzzyvn.NewSearcher(files)
+
+// User gõ, realtime search
+results := searcher.Search(userInput)
+```
+
+### 2. Document Management
+
+```go
+// Index tài liệu công ty
+docs := scanWithExtensions("/company/docs", []string{".pdf", ".docx"})
+searcher := fuzzyvn.NewSearcher(docs)
+
+// Tìm hợp đồng
+contracts := searcher.Search("hop dong")
+```
+
+### 3. Code Search
+
+```go
+// Index source code
+code := scanIgnoreDirs("/project", []string{"node_modules", ".git"})
+searcher := fuzzyvn.NewSearcher(code)
+
+// Tìm file main
+mains := searcher.Search("main")
+```
+
+### 4. Media Library
+
+```go
+// Index nhạc
+music := scanWithExtensions("/music", []string{".mp3", ".flac"})
+searcher := fuzzyvn.NewSearcher(music)
+
+// Tìm bài hát
+songs := searcher.Search("son tung")
+```
+
+## Ví dụ nâng cao
+
+### Rebuild Index khi file thay đổi
+
+```go
+func watchAndRebuild(searcher **fuzzyvn.Searcher) {
+    watcher := setupFileWatcher()
+    
+    for event := range watcher.Events {
+        // Giữ lại cache
+        cache := (*searcher).GetCache()
+        
+        // Quét lại
+        newFiles := scanDirectory("/data")
+        
+        // Rebuild với cache cũ
+        *searcher = fuzzyvn.NewSearcherWithCache(newFiles, cache)
+    }
+}
+```
+
+### Tùy chỉnh cho domain cụ thể
+
+```go
+searcher := fuzzyvn.NewSearcher(files)
+cache := searcher.GetCache()
+
+// Tăng boost cho người dùng power user
+cache.SetBoostScore(15000)
+
+// Lưu nhiều lịch sử hơn
+cache.SetMaxQueries(1000)
+```
+
+### Integration với CLI tool
+
+```go
+func main() {
+    files := scanDirectory(os.Getenv("HOME"))
+    searcher := fuzzyvn.NewSearcher(files)
+    
+    reader := bufio.NewReader(os.Stdin)
+    for {
+        fmt.Print("Search> ")
+        query, _ := reader.ReadString('\n')
+        query = strings.TrimSpace(query)
+        
+        results := searcher.Search(query)
+        for i, r := range results {
+            fmt.Printf("[%d] %s\n", i, r)
+        }
+        
+        fmt.Print("Select> ")
+        input, _ := reader.ReadString('\n')
+        idx, _ := strconv.Atoi(strings.TrimSpace(input))
+        
+        if idx >= 0 && idx < len(results) {
+            searcher.RecordSelection(query, results[idx])
+            // Open file...
+        }
+    }
+}
+```
+
+## Đóng góp
+
+Vui lòng theo chuẩn [Contributing](.github/CONTRIBUTING.md) khi tạo một contribution qua pull request.
+
+## License
+
+Package này được cấp phép bởi giấy phép [0BSD License](LICENSE). Bạn có thể sửa, xóa, thêm hay làm bất cứ thứ gì bạn muốn với nó.
