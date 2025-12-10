@@ -33,7 +33,6 @@ fuzzyvn.go
 │   ├── Size()
 │   └── Clear()
 └── Searcher (line 458-609)
-
 	├── NewSearcher()
 	├── NewSearcherWithCache()
 	├── Search()
