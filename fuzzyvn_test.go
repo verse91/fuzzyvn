@@ -1,9 +1,12 @@
 package fuzzyvn
 
 import (
+	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNormalize(t *testing.T) {
@@ -372,4 +375,336 @@ func TestSearcher_ClearCache(t *testing.T) {
 	if searcher.Cache.Size() != 0 {
 		t.Error("ClearCache phải xóa hết cache")
 	}
+}
+
+func TestSearchWithVietnameseData(t *testing.T) {
+	cases := []struct {
+		pattern     string
+		data        []string
+		wantMatches int
+		wantFirst   string
+	}{
+		{
+			"bao cao",
+			[]string{"Báo_cáo_tháng_1.pdf", "config.yaml", "README.md"},
+			1,
+			"Báo_cáo_tháng_1.pdf",
+		},
+		{
+			"son tung",
+			[]string{"Sơn Tùng - Lạc Trôi.mp3", "Mỹ Tâm - Hãy Về Đây.mp3"},
+			1,
+			"Sơn Tùng - Lạc Trôi.mp3",
+		},
+		{
+			"ky niem",
+			[]string{"Kỷ Niệm Vô Tận.flac", "Kỉ Niệm Xưa.mp3", "config.yaml"},
+			2,
+			"",
+		},
+		{
+			"ki niem",
+			[]string{"Kỷ Niệm Vô Tận.flac", "Kỉ Niệm Xưa.mp3", "config.yaml"},
+			2,
+			"",
+		},
+		{
+			"duong",
+			[]string{"Đường Về Nhà.mp3", "duong_dan.txt", "config.yaml"},
+			2,
+			"",
+		},
+		{
+			"nguyen",
+			[]string{"Nguyễn Văn A.docx", "nguyen_config.yaml"},
+			2,
+			"",
+		},
+	}
+
+	for _, c := range cases {
+		searcher := NewSearcher(c.data)
+		results := searcher.Search(c.pattern)
+
+		if len(results) < c.wantMatches {
+			t.Errorf("Search(%q): got %d matches, want at least %d", c.pattern, len(results), c.wantMatches)
+		}
+
+		if c.wantFirst != "" && len(results) > 0 && results[0] != c.wantFirst {
+			t.Errorf("Search(%q): first match = %q, want %q", c.pattern, results[0], c.wantFirst)
+		}
+	}
+}
+
+func TestSearchWithTypos(t *testing.T) {
+	cases := []struct {
+		pattern string
+		data    []string
+		want    string
+	}{
+		{"mian", []string{"main.go", "config.yaml"}, "main.go"},
+		{"conifg", []string{"main.go", "config.yaml"}, "config.yaml"},
+		{"redame", []string{"README.md", "main.go"}, "README.md"},
+		{"maiin", []string{"main.go", "test.go"}, "main.go"},
+	}
+
+	for _, c := range cases {
+		searcher := NewSearcher(c.data)
+		results := searcher.Search(c.pattern)
+
+		if !slices.Contains(results, c.want) {
+			t.Errorf("Search(%q) với typo: không tìm thấy %q", c.pattern, c.want)
+		}
+	}
+}
+
+func TestSearchCacheBoost(t *testing.T) {
+	files := []string{
+		"/project/main.go",
+		"/project/main_test.go",
+		"/project/main_server.go",
+		"/project/main_client.go",
+		"/project/config.yaml",
+	}
+
+	searcher := NewSearcher(files)
+
+	results1 := searcher.Search("main")
+	firstBefore := results1[0]
+
+	searcher.RecordSelection("main", "/project/main_client.go")
+	searcher.RecordSelection("main", "/project/main_client.go")
+	searcher.RecordSelection("main", "/project/main_client.go")
+
+	results2 := searcher.Search("main")
+	firstAfter := results2[0]
+
+	if firstAfter != "/project/main_client.go" {
+		t.Errorf("Sau khi cache, file được chọn nhiều lần phải lên đầu. Got %q", firstAfter)
+	}
+
+	if firstBefore == firstAfter {
+		t.Log("Lưu ý: kết quả có thể giống nhau nếu file đã ở đầu")
+	}
+}
+
+func TestSearchWithRealworldData(t *testing.T) {
+	t.Run("với test_data music", func(t *testing.T) {
+		testDataPath := "demo/test_data/Music_Lossless"
+		if _, err := os.Stat(testDataPath); os.IsNotExist(err) {
+			t.Skip("Bỏ qua: không có test_data")
+		}
+
+		files := scanTestData(testDataPath)
+		if len(files) == 0 {
+			t.Skip("Bỏ qua: không có files trong test_data")
+		}
+
+		searcher := NewSearcher(files)
+
+		cases := []struct {
+			pattern     string
+			wantMatches int
+		}{
+			{"son tung", 1},
+			{"ky niem", 1},
+			{"lac troi", 1},
+		}
+
+		for _, c := range cases {
+			now := time.Now()
+			results := searcher.Search(c.pattern)
+			elapsed := time.Since(now)
+
+			fmt.Printf("Search '%s' trong %d files... tìm thấy %d kết quả trong %v\n",
+				c.pattern, len(files), len(results), elapsed)
+
+			if len(results) < c.wantMatches {
+				t.Errorf("Search(%q): got %d matches, want at least %d", c.pattern, len(results), c.wantMatches)
+			}
+		}
+	})
+}
+
+func BenchmarkNewSearcher(b *testing.B) {
+	files := generateTestFiles(1000)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		NewSearcher(files)
+	}
+}
+
+func BenchmarkSearch(b *testing.B) {
+	b.Run("100 files", func(b *testing.B) {
+		files := generateTestFiles(100)
+		searcher := NewSearcher(files)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("main")
+		}
+	})
+
+	b.Run("1000 files", func(b *testing.B) {
+		files := generateTestFiles(1000)
+		searcher := NewSearcher(files)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("main")
+		}
+	})
+
+	b.Run("10000 files", func(b *testing.B) {
+		files := generateTestFiles(10000)
+		searcher := NewSearcher(files)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("config")
+		}
+	})
+}
+
+func BenchmarkSearchVietnamese(b *testing.B) {
+	files := generateVietnameseTestFiles(1000)
+	searcher := NewSearcher(files)
+
+	b.Run("tiếng Việt có dấu", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("báo cáo")
+		}
+	})
+
+	b.Run("tiếng Việt không dấu", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("bao cao")
+		}
+	})
+}
+
+func BenchmarkSearchWithCache(b *testing.B) {
+	files := generateTestFiles(1000)
+	searcher := NewSearcher(files)
+
+	searcher.RecordSelection("main", files[0])
+	searcher.RecordSelection("main", files[1])
+	searcher.RecordSelection("config", files[2])
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		searcher.Search("main")
+	}
+}
+
+func BenchmarkNormalize(b *testing.B) {
+	testStrings := []string{
+		"Đường Nguyễn Huệ",
+		"Báo cáo tháng 1",
+		"Sơn Tùng M-TP",
+		"Kỷ niệm vô tận",
+		"Hello World",
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, s := range testStrings {
+			Normalize(s)
+		}
+	}
+}
+
+func BenchmarkLevenshteinRatio(b *testing.B) {
+	pairs := []struct{ a, b string }{
+		{"main", "mian"},
+		{"config", "conifg"},
+		{"moduleNameResolver", "mnr"},
+		{"hello", "hallo"},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, p := range pairs {
+			LevenshteinRatio(p.a, p.b)
+		}
+	}
+}
+
+func BenchmarkRecordSelection(b *testing.B) {
+	cache := NewQueryCache()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache.RecordSelection(fmt.Sprintf("query%d", i%100), fmt.Sprintf("/file%d.go", i%1000))
+	}
+}
+
+func BenchmarkGetBoostScores(b *testing.B) {
+	cache := NewQueryCache()
+	for i := 0; i < 100; i++ {
+		cache.RecordSelection(fmt.Sprintf("query%d", i), fmt.Sprintf("/file%d.go", i))
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache.GetBoostScores("query50")
+	}
+}
+
+func generateTestFiles(n int) []string {
+	files := make([]string, n)
+	names := []string{"main", "config", "test", "utils", "helper", "server", "client", "api", "model", "view"}
+	exts := []string{".go", ".yaml", ".json", ".md", ".txt"}
+
+	for i := 0; i < n; i++ {
+		name := names[i%len(names)]
+		ext := exts[i%len(exts)]
+		files[i] = fmt.Sprintf("/project/src/%s_%d%s", name, i, ext)
+	}
+	return files
+}
+
+func generateVietnameseTestFiles(n int) []string {
+	files := make([]string, n)
+	names := []string{
+		"Báo_cáo_tháng",
+		"Hợp_đồng_thuê",
+		"Đơn_xin_nghỉ",
+		"Kế_hoạch_năm",
+		"Biên_bản_họp",
+		"Quyết_định",
+		"Thông_báo",
+		"Công_văn",
+		"Tờ_trình",
+		"Đề_xuất",
+	}
+	exts := []string{".pdf", ".docx", ".xlsx", ".pptx", ".txt"}
+
+	for i := 0; i < n; i++ {
+		name := names[i%len(names)]
+		ext := exts[i%len(exts)]
+		files[i] = fmt.Sprintf("/documents/%s_%d%s", name, i, ext)
+	}
+	return files
+}
+
+func scanTestData(root string) []string {
+	var files []string
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return files
+	}
+
+	for _, entry := range entries {
+		path := root + "/" + entry.Name()
+		if entry.IsDir() {
+			files = append(files, scanTestData(path)...)
+		} else {
+			files = append(files, path)
+		}
+	}
+	return files
 }
