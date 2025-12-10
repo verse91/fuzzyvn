@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+const TestData100kPath = "./demo/test_data/test_paths_100k.txt"
+
+func loadTestFiles(path string) ([]string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	files := strings.Split(string(content), "\n")
+	var result []string
+	for _, file := range files {
+		if file != "" {
+			result = append(result, file)
+		}
+	}
+	return result, nil
+}
+
 func TestNormalize(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -62,7 +79,6 @@ func TestNormalize_YI_NotEquivalent(t *testing.T) {
 		if normB != pair.expectB {
 			t.Errorf("Normalize(%q) = %q, muốn %q", pair.b, normB, pair.expectB)
 		}
-		// y và i phải KHÁC nhau
 		if normA == normB {
 			t.Errorf("Normalize(%q) = %q KHÔNG nên bằng Normalize(%q) = %q", pair.a, normA, pair.b, normB)
 		}
@@ -531,6 +547,42 @@ func TestSearchWithRealworldData(t *testing.T) {
 			if len(results) < c.wantMatches {
 				t.Errorf("Search(%q): got %d matches, want at least %d", c.pattern, len(results), c.wantMatches)
 			}
+		}
+	})
+}
+
+func BenchmarkSearch_RealWorld(b *testing.B) {
+	allFiles, err := loadTestFiles(TestData100kPath)
+	if err != nil {
+		b.Skipf("Lỗi khi tải file %s. Vui lòng đảm bảo file tồn tại: %v", TestData100kPath, err)
+	}
+
+	files50k := allFiles[:50000]
+
+	b.Run("Search/50k_Files", func(b *testing.B) {
+		searcher := NewSearcher(files50k)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("config")
+		}
+	})
+
+	b.Run("Search/100k_Files", func(b *testing.B) {
+		searcher := NewSearcher(allFiles)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("config")
+		}
+	})
+
+	b.Run("Search/100k_Files_Typo", func(b *testing.B) {
+		searcher := NewSearcher(allFiles)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			searcher.Search("conifg")
 		}
 	})
 }
