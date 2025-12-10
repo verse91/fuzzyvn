@@ -97,7 +97,7 @@ ok  	github.com/verse91/fuzzyvn	9.051s
 
 ```
 
-# Cách dùng như một package
+# Cách dùng
 
 ## Tìm kiếm file cơ bản
 
