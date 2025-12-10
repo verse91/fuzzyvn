@@ -33,6 +33,7 @@ fuzzyvn.go
 │   ├── Size()
 │   └── Clear()
 └── Searcher (line 458-609)
+
 	├── NewSearcher()
 	├── NewSearcherWithCache()
 	├── Search()
@@ -99,7 +100,9 @@ type MatchResult struct {
 // =============================================================================
 
 func abs(x int) int {
-	if x < 0 { return -x }
+	if x < 0 {
+		return -x
+	}
 	return x
 }
 
@@ -124,21 +127,21 @@ func Normalize(s string) string {
 - Tại mỗi bước so sánh ký tự, ta có 3 quyền lựa chọn, ta sẽ chọn cái nào tốn ít chi phí nhất (minVal):
 + Xóa bỏ ký tự ở s1 (Chi phí +1)
 + Thêm ký tự vào s1 để giống s2 (Chi phí +1)
-+ Thay thế: 
++ Thay thế:
 > Nếu 2 ký tự giống nhau: Không mất phí (+0)
 > Nếu khác nhau: Thay ký tự này bằng ký tự kia (+1)
 NOTE: 1 điều lưu ý là ta không cần quan tâm chữ hoa, chữ thường vì đã chuẩn hóa rồi
 */
 func LevenshteinRatio(s1, s2 string) int {
 	/*
-	4 dòng dưới
-	Đây là trường hợp biến chuỗi s1 thành "chuỗi rỗng"
-	Ví dụ s1 = "ABC", s2 = ""
-	Biến "" thành "" mất 0 bước (column[0] = 0)
-	Biến "A" thành "" mất 1 bước xóa (column[1] = 1)
-	Biến "AB" thành "" mất 2 bước xóa (column[2] = 2)
-	Lúc này mảng column trông như thế này: [0, 1, 2, 3, ... len(s1)]
-	Tương ứng tăng dần từ 0 đến len(s1) là chi phí biến thành chuỗi rỗng
+		4 dòng dưới
+		Đây là trường hợp biến chuỗi s1 thành "chuỗi rỗng"
+		Ví dụ s1 = "ABC", s2 = ""
+		Biến "" thành "" mất 0 bước (column[0] = 0)
+		Biến "A" thành "" mất 1 bước xóa (column[1] = 1)
+		Biến "AB" thành "" mất 2 bước xóa (column[2] = 2)
+		Lúc này mảng column trông như thế này: [0, 1, 2, 3, ... len(s1)]
+		Tương ứng tăng dần từ 0 đến len(s1) là chi phí biến thành chuỗi rỗng
 	*/
 	s1Len := len(s1)
 	s2Len := len(s2)
@@ -148,49 +151,49 @@ func LevenshteinRatio(s1, s2 string) int {
 	}
 
 	/*
-	Ở đây mình sẽ giải thích sơ sơ
-	Thay vì dùng ma trận, mình dùng column như 1 stack từ trên xuống vậy, và ta sẽ ghi đè lên cái nào đã dùng
-	Chủ yếu để tiết kiệm 1 chút bộ nhớ thôi
-	Giờ nhìn ma trận trước
-        /*
-          "" |  A |  B |  C 
-        ┌────┬────┬────┬────┐
-      ""│  0 │  1 │  2 │  3 │   ← khởi tạo, từ rỗng thành rỗng cần 0 bước, thành A cần qua chữ A, thành B cần qua A,B, thành C cần qua A,B,C
-        ├────┼────┼────┼────┤
-      A │  1 │  0 │  1 │  2 │   ← A=A (0), còn lại +1 theo cách biến đổi như cách khởi tạo
-        ├────┼────┼────┼────┤
-      X │  2 │  1 │  ? │  2 │   ← chuỗi AX, đổi thành rỗng cần 2 bước,... nhưng X≠B đọc tiếp xuống dưới
-        ├────┼────┼────┼────┤
-      C │  3 │  2 │  2 │  1 │   ← Tương tự, tại ô của B, Biến AX thành AB (tốn 1 bước sửa X->B), sau đó dư chữ C nên phải Xóa C (1 bước nữa)
-        └────┴────┴────┴────┘                     
-	Kết quả tại ô "?" = 1
-	Vì ô ? = min(trên, trái, chéo trái) + 1 (+1 khi ta thấy được ký tự khác nhau)
-	Còn bạn nhìn vào ô (4,4) (C,C) ta thấy nó bằng 1 vì min(trên, trái, chéo trái) không + 1 vì C-C giống nhau
-	Bây giờ, hãy xem chuyện gì xảy ra khi ta ép cái bảng trên vào 1 mảng duy nhất (column)
-	
+			Ở đây mình sẽ giải thích sơ sơ
+			Thay vì dùng ma trận, mình dùng column như 1 stack từ trên xuống vậy, và ta sẽ ghi đè lên cái nào đã dùng
+			Chủ yếu để tiết kiệm 1 chút bộ nhớ thôi
+			Giờ nhìn ma trận trước
+		        /*
+		          "" |  A |  B |  C
+		        ┌────┬────┬────┬────┐
+		      ""│  0 │  1 │  2 │  3 │   ← khởi tạo, từ rỗng thành rỗng cần 0 bước, thành A cần qua chữ A, thành B cần qua A,B, thành C cần qua A,B,C
+		        ├────┼────┼────┼────┤
+		      A │  1 │  0 │  1 │  2 │   ← A=A (0), còn lại +1 theo cách biến đổi như cách khởi tạo
+		        ├────┼────┼────┼────┤
+		      X │  2 │  1 │  ? │  2 │   ← chuỗi AX, đổi thành rỗng cần 2 bước,... nhưng X≠B đọc tiếp xuống dưới
+		        ├────┼────┼────┼────┤
+		      C │  3 │  2 │  2 │  1 │   ← Tương tự, tại ô của B, Biến AX thành AB (tốn 1 bước sửa X->B), sau đó dư chữ C nên phải Xóa C (1 bước nữa)
+		        └────┴────┴────┴────┘
+			Kết quả tại ô "?" = 1
+			Vì ô ? = min(trên, trái, chéo trái) + 1 (+1 khi ta thấy được ký tự khác nhau)
+			Còn bạn nhìn vào ô (4,4) (C,C) ta thấy nó bằng 1 vì min(trên, trái, chéo trái) không + 1 vì C-C giống nhau
+			Bây giờ, hãy xem chuyện gì xảy ra khi ta ép cái bảng trên vào 1 mảng duy nhất (column)
+
 	*/
 	for i := 1; i <= s2Len; i++ {
-		column[0] = i // Ví dụ: "" -> "A" (1 thêm), "" -> "AX" (2 thêm)
+		column[0] = i    // Ví dụ: "" -> "A" (1 thêm), "" -> "AX" (2 thêm)
 		lastKey := i - 1 // Lưu giá trị cũ của ô chéo trên trái ta đã đề cập
 		for j := 1; j <= s1Len; j++ {
 			/*
-			IMPORTANT: Lưu lại giá trị cũ của column[j] trước khi bị ghi đè
-			column[j] lúc này đang chứa giá trị của hàng bên trên (i-1)
-			Sau khi vòng lặp này kết thúc, giá trị này sẽ trở thành
-		    ô chéo trên trái cho vòng lặp tiếp theo (j+1)
+					IMPORTANT: Lưu lại giá trị cũ của column[j] trước khi bị ghi đè
+					column[j] lúc này đang chứa giá trị của hàng bên trên (i-1)
+					Sau khi vòng lặp này kết thúc, giá trị này sẽ trở thành
+				    ô chéo trên trái cho vòng lặp tiếp theo (j+1)
 			*/
-			oldKey := column[j] 
+			oldKey := column[j]
 			/*
-			Tính toán chi phí biến đổi:
-			
-					(lastKey)    (column[j] cũ)
-   					  CHÉO      |     TRÊN
-    				   ↘        |      ↓
-           					┌───────┐
-  				   TRÁI ──→ │  ???  │  (Đang tính)
-              (column[j-1]) └───────┘
-				
-			NOTE: lastKey = column[j-1]
+							Tính toán chi phí biến đổi:
+
+									(lastKey)    (column[j] cũ)
+				   					  CHÉO      |     TRÊN
+				    				   ↘        |      ↓
+				           					┌───────┐
+				  				   TRÁI ──→ │  ???  │  (Đang tính)
+				              (column[j-1]) └───────┘
+
+							NOTE: lastKey = column[j-1]
 			*/
 			var incr int
 			if s1[j-1] != s2[i-1] {
@@ -204,12 +207,12 @@ func LevenshteinRatio(s1, s2 string) int {
 			if column[j-1]+1 < minVal {
 				minVal = column[j-1] + 1
 			}
-			// Sửa. Ví dụ: Năm -> Nấm 
+			// Sửa. Ví dụ: Năm -> Nấm
 			if lastKey+incr < minVal {
 				minVal = lastKey + incr
 			}
 			column[j] = minVal
-			// Giá trị Trên của ô hiện tại (oldKey) sẽ trở thành 
+			// Giá trị Trên của ô hiện tại (oldKey) sẽ trở thành
 			// giá trị Chéo của ô bên phải
 			lastKey = oldKey
 		}
@@ -265,12 +268,12 @@ func (c *QueryCache) querySimilarity(q1, q2 string) int {
 			}
 		}
 		/*
-		Ví dụ:
-		q1: "sơn tùng mtp"
-		q2: "mtp sơn tùng"
-		Hai chuỗi này Contains sẽ sai, nhưng tách từ thì khớp 3 từ.
-		Điểm: 50 + (15 điểm cho mỗi từ trùng). Nếu trùng 3 từ = 95 điểm
-		Nếu điểm cao như này thì hoàn toàn khẳng định được đây là từ khóa cần tìm
+			Ví dụ:
+			q1: "sơn tùng mtp"
+			q2: "mtp sơn tùng"
+			Hai chuỗi này Contains sẽ sai, nhưng tách từ thì khớp 3 từ.
+			Điểm: 50 + (15 điểm cho mỗi từ trùng). Nếu trùng 3 từ = 95 điểm
+			Nếu điểm cao như này thì hoàn toàn khẳng định được đây là từ khóa cần tìm
 		*/
 		if commonWords > 0 {
 			return 50 + (commonWords * 15)
@@ -278,7 +281,7 @@ func (c *QueryCache) querySimilarity(q1, q2 string) int {
 	}
 
 	/*
-	Sai chính tả
+		Sai chính tả
 	*/
 	if len(q1) >= 3 && len(q2) >= 3 {
 		// Tính khoảng cách Levenshtein
@@ -294,11 +297,11 @@ func (c *QueryCache) querySimilarity(q1, q2 string) int {
 			threshold = 2
 		}
 		/*
-		Nếu số lỗi nằm trong ngưỡng cho phép: Trả về 60 trừ đi điểm phạt (mỗi lỗi trừ 10 điểm)
-		Ví dụ:
-		q1: "iphone"
-		q2: "ipbone" (Sai 1 ký tự h -> b, dist = 1)
-		Điểm: 60 - (1 * 10) = 50 điểm
+			Nếu số lỗi nằm trong ngưỡng cho phép: Trả về 60 trừ đi điểm phạt (mỗi lỗi trừ 10 điểm)
+			Ví dụ:
+			q1: "iphone"
+			q2: "ipbone" (Sai 1 ký tự h -> b, dist = 1)
+			Điểm: 60 - (1 * 10) = 50 điểm
 		*/
 		if dist <= threshold {
 			return 60 - (dist * 10)
@@ -307,7 +310,8 @@ func (c *QueryCache) querySimilarity(q1, q2 string) int {
 
 	return 0
 }
-// 
+
+//
 /*
 - moveToFront: Đẩy query lên đầu danh sách queryOrder
 - Để query được tìm kiếm nhiều nhất sẽ được ưu tiên hơn
@@ -442,10 +446,10 @@ func (c *QueryCache) GetBoostScores(query string) map[string]int {
 
 	queryNorm := strings.ToLower(Normalize(query))
 	/*
-	Kết quả nào càng giống ý định tìm kiếm VÀ càng được chọn nhiều trước đây, thì điểm cộng càng cao
-	Dựa vào config boost cơ bản của bạn
-	Độ giống nhau dựa vào querySimilarity
-	Độ phổ biến dựa vào entry.SelectCount, kiểu như 1 người bấm vào chọn nhiều lần hoặc nhiều người bấm vào chọn
+		Kết quả nào càng giống ý định tìm kiếm VÀ càng được chọn nhiều trước đây, thì điểm cộng càng cao
+		Dựa vào config boost cơ bản của bạn
+		Độ giống nhau dựa vào querySimilarity
+		Độ phổ biến dựa vào entry.SelectCount, kiểu như 1 người bấm vào chọn nhiều lần hoặc nhiều người bấm vào chọn
 	*/
 	for cachedQuery, entries := range c.entries {
 		similarity := c.querySimilarity(queryNorm, cachedQuery)
@@ -453,10 +457,10 @@ func (c *QueryCache) GetBoostScores(query string) map[string]int {
 			for _, entry := range entries {
 				boost := (c.boostScore * similarity * entry.SelectCount) / 100
 				/*
-				Một file (entry.FilePath) có thể xuất hiện trong nhiều cached query khác nhau
-    			Ví dụ: File "iPhone 15.html" xuất hiện khi tìm "iphone" và cả khi tìm "apple" (đại loại vậy)
-				Đoạn code này đảm bảo: Nếu một file được tìm thấy nhiều lần,
-				ta chỉ giữ lại điểm Boost cao nhất mà nó đạt được
+									Một file (entry.FilePath) có thể xuất hiện trong nhiều cached query khác nhau
+					    			Ví dụ: File "iPhone 15.html" xuất hiện khi tìm "iphone" và cả khi tìm "apple" (đại loại vậy)
+									Đoạn code này đảm bảo: Nếu một file được tìm thấy nhiều lần,
+									ta chỉ giữ lại điểm Boost cao nhất mà nó đạt được
 				*/
 				if currentBoost, exists := result[entry.FilePath]; !exists || boost > currentBoost {
 					result[entry.FilePath] = boost
@@ -516,7 +520,7 @@ func (c *QueryCache) GetCachedFiles(query string, limit int) []string {
 	if entries, ok := c.entries[queryNorm]; ok {
 		for _, entry := range entries {
 			// Điểm cơ bản cực cao (100) * số lần click
-			score := 100 * entry.SelectCount 
+			score := 100 * entry.SelectCount
 			matches = append(matches, fileScore{path: entry.FilePath, score: score})
 			seen[entry.FilePath] = true
 		}
@@ -530,7 +534,7 @@ func (c *QueryCache) GetCachedFiles(query string, limit int) []string {
 		}
 
 		// Nếu độ dài chuỗi lệch nhau quá 5 ký tự, khả năng cao là không liên quan -> Bỏ qua để đỡ tốn tài nguyên
-		if abs(len(cachedQuery) - len(queryNorm)) > 5 {
+		if abs(len(cachedQuery)-len(queryNorm)) > 5 {
 			continue
 		}
 
@@ -555,7 +559,7 @@ func (c *QueryCache) GetCachedFiles(query string, limit int) []string {
 	result := make([]string, 0, limit)
 
 	// Reset map seen để dùng cho việc filter kết quả trả về
-	seenResult := make(map[string]bool) 
+	seenResult := make(map[string]bool)
 
 	for _, m := range matches {
 		if !seenResult[m.path] {
@@ -726,9 +730,9 @@ func (s *Searcher) Search(query string) []string {
 	}
 
 	// Ta tính điểm sai chính tả dựa trên Levenshtein
-	// Tức là nếu user gõ "maain" hay "mian"" thì ta tính điểm cho "main"
-	// Ta tính dựa vào query len bởi vì nếu hardcode thì query dài hơn sẽ sai lệch
-	// Nhưng nếu dài quá và sai nhiều quá thì thôi set luôn 3 điểm vì biết chả đoán ra
+	// Tức là nếu user gõ "maain" hay "mian" thì ta vẫn tính điểm cho "main"
+	// Threshold = (queryLen / 3) + 1: cho phép khoảng 1 lỗi mỗi 3 ký tự + 1 lỗi bonus
+	// Minimum threshold = 3: query ngắn (2-5 ký tự) vẫn cần đủ độ linh hoạt để match
 	if queryLen > 1 {
 		baseThreshold := (queryLen / 3) + 1
 		if baseThreshold < 3 {
@@ -759,13 +763,13 @@ func (s *Searcher) Search(query string) []string {
 			}
 
 			/*
-			Ở phần trên ví dụ như "mian", target 1 là "main" target 2 là "maina"
-			Ta tính điểm ở target 1, dist = d1 = 2, nhưng ở target 2, dist = d2 = 3
-			if d2 < dist {
-					dist = d2
-				}
-			Tức là nếu nhỏ hơn cái d1 thì lấy, còn không thì giữ nguyên
-			Kiểu như min(d1, d2)
+				Ở phần trên ví dụ như "mian", target 1 là "main" target 2 là "maina"
+				Ta tính điểm ở target 1, dist = d1 = 2, nhưng ở target 2, dist = d2 = 3
+				if d2 < dist {
+						dist = d2
+					}
+				Tức là nếu nhỏ hơn cái d1 thì lấy, còn không thì giữ nguyên
+				Kiểu như min(d1, d2)
 			*/
 
 			// Nếu điểm sai chính tả nhỏ hơn ngưỡng cho phép thì tính điểm
@@ -785,32 +789,32 @@ func (s *Searcher) Search(query string) []string {
 		}
 	}
 	/*
-	Đảm bảo file đã cache luôn xuất hiện trong kết quả, kể cả khi fuzzy/Levenshtein không match
-	Thì ví dụ như:
-	User search "tiền lương", xong họ chả chọn cái gì liên quan tới tiền lương
-	nhưng chọn "bao_cao_tai_chinh_2024.xlsx"
-	Hệ thống lưu lại: Query: "tiền lương" -> File: "bao_cao..."
-	Xong giờ search lại "tien luong" một lần nữa
-	Lúc này cả fuzzy và levenshtein đều không match
-	Đoạn code này sẽ giải quyết vấn đề trên
-	Nó vẫn in ra "bao_cao_tai_chinh_2024.xlsx", vì trước đây từng có hành vi này
-	Và có thể nó sẽ là 1 trong những file user cần
-	Đây chỉ là một cơ chế phòng bị cho trường hợp user quên tên file
-	vì nó cũng không có độ chính xác quá cao
+		Đảm bảo file đã cache luôn xuất hiện trong kết quả, kể cả khi fuzzy/Levenshtein không match
+		Thì ví dụ như:
+		User search "tiền lương", xong họ chả chọn cái gì liên quan tới tiền lương
+		nhưng chọn "bao_cao_tai_chinh_2024.xlsx"
+		Hệ thống lưu lại: Query: "tiền lương" -> File: "bao_cao..."
+		Xong giờ search lại "tien luong" một lần nữa
+		Lúc này cả fuzzy và levenshtein đều không match
+		Đoạn code này sẽ giải quyết vấn đề trên
+		Nó vẫn in ra "bao_cao_tai_chinh_2024.xlsx", vì trước đây từng có hành vi này
+		Và có thể nó sẽ là 1 trong những file user cần
+		Đây chỉ là một cơ chế phòng bị cho trường hợp user quên tên file
+		vì nó cũng không có độ chính xác quá cao
 	*/
 	for cachedPath, boost := range cacheBoosts {
 		if idx, exists := filePathToIdx[cachedPath]; exists {
 			if _, alreadyInResults := uniqueResults[idx]; !alreadyInResults {
-				uniqueResults[idx] = boost // Không làm hỏng kết quả khác vì chỉ thêm khi chưa có 
+				uniqueResults[idx] = boost // Không làm hỏng kết quả khác vì chỉ thêm khi chưa có
 			}
 		}
 	}
 
 	/*
-	File: "/a/main.go"
-	Fuzzy score: 85
-	Cache boost: 5000
-	Final score: 85 + 5000 = 5085 -> Lên top
+		File: "/a/main.go"
+		Fuzzy score: 85
+		Cache boost: 5000
+		Final score: 85 + 5000 = 5085 -> Lên top
 	*/
 	var rankedResults []MatchResult
 	for idx, score := range uniqueResults {
