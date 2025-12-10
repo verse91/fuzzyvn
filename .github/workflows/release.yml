@@ -1,0 +1,56 @@
+name: Release Go Package
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger khi push tag (vd: v0.1.6)
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-release:
+    name: Test, Benchmark & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Hoặc version bạn đang dùng
+          cache: true
+
+      # 1. Chạy Linter để đảm bảo code sạch
+      - name: Run Linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      # 2. Chạy Unit Test (Quan trọng nhất)
+      - name: Run Tests
+        run: go test -v -race -cover ./...
+
+      # 3. Chạy Benchmark (Vì thư viện này quan trọng hiệu năng)
+      # Bước này để bạn kiểm tra xem version mới có bị chậm đi không
+      - name: Run Benchmark
+        run: go test -bench=. -benchmem ./...
+
+      # 4. Tạo Release trên GitHub
+      # Đối với Library, ta không cần upload file .zip hay .exe
+      # GitHub sẽ tự tạo Source code (zip/tar.gz)
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## Changes
+            ## Installation
+            ```bash
+            go get [github.com/$](https://github.com/$){{ github.repository }}@${{ github.ref_name }}
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
