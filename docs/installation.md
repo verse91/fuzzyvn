@@ -2,7 +2,7 @@
 
 ## Yêu cầu
 
-- Go 1.18 trở lên
+- Go 1.21 trở lên
 
 ## Cài đặt
 
