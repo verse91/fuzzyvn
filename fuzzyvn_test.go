@@ -16,19 +16,21 @@ func TestNormalize(t *testing.T) {
 	}{
 		{"Đường", "Duong"},
 		{"đường", "duong"},
-		{"Nguyễn", "Nguien"},
-		{"nguyễn", "nguien"},
+		{"Nguyễn", "Nguyen"},
+		{"nguyễn", "nguyen"},
 		{"Huệ", "Hue"},
 		{"café", "cafe"},
-		{"kỷ niệm", "ki niem"},
+		{"kỷ niệm", "ky niem"},
 		{"kỉ niệm", "ki niem"},
-		{"lý do", "li do"},
+		{"lý do", "ly do"},
 		{"lí do", "li do"},
-		{"quy định", "qui dinh"},
+		{"quy định", "quy dinh"},
 		{"qui định", "qui dinh"},
 		{"Sơn Tùng", "Son Tung"},
 		{"Báo cáo tháng 1", "Bao cao thang 1"},
 		{"Hello World", "Hello World"},
+		{"vật lý", "vat ly"},
+		{"Python", "Python"},
 		{"", ""},
 	}
 
@@ -40,22 +42,29 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-func TestNormalize_IY_Equivalence(t *testing.T) {
+func TestNormalize_YI_NotEquivalent(t *testing.T) {
 	pairs := []struct {
-		a, b string
+		a, b    string
+		expectA string
+		expectB string
 	}{
-		{"kỷ niệm", "kỉ niệm"},
-		{"lý do", "lí do"},
-		{"quy tắc", "qui tắc"},
-		{"ký tự", "kí tự"},
-		{"mỹ thuật", "mĩ thuật"},
+		{"kỷ niệm", "kỉ niệm", "ky niem", "ki niem"},
+		{"lý do", "lí do", "ly do", "li do"},
+		{"vật lý", "vật lí", "vat ly", "vat li"},
 	}
 
 	for _, pair := range pairs {
 		normA := Normalize(pair.a)
 		normB := Normalize(pair.b)
-		if normA != normB {
-			t.Errorf("Normalize(%q) = %q, Normalize(%q) = %q, phải giống nhau", pair.a, normA, pair.b, normB)
+		if normA != pair.expectA {
+			t.Errorf("Normalize(%q) = %q, muốn %q", pair.a, normA, pair.expectA)
+		}
+		if normB != pair.expectB {
+			t.Errorf("Normalize(%q) = %q, muốn %q", pair.b, normB, pair.expectB)
+		}
+		// y và i phải KHÁC nhau
+		if normA == normB {
+			t.Errorf("Normalize(%q) = %q KHÔNG nên bằng Normalize(%q) = %q", pair.a, normA, pair.b, normB)
 		}
 	}
 }

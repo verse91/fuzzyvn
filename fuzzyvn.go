@@ -106,16 +106,42 @@ func abs(x int) int {
 	return x
 }
 
+func countWordMatches(queryWords []string, target string) int {
+	targetWords := strings.Fields(target)
+	count := 0
+	for _, qWord := range queryWords {
+		if len(qWord) < 2 {
+			continue
+		}
+		for _, tWord := range targetWords {
+			if len(tWord) < 2 {
+				continue
+			}
+			// Exact match
+			if qWord == tWord {
+				count++
+				break
+			}
+			// Fuzzy match: cho phép 1 lỗi nếu từ >= 3 ký tự
+			if len(qWord) >= 3 && len(tWord) >= 3 {
+				dist := LevenshteinRatio(qWord, tWord)
+				if dist <= 1 {
+					count++
+					break
+				}
+			}
+		}
+	}
+	return count
+}
+
 func Normalize(s string) string {
 	// Tách dấu -> xóa dấu -> ghép lại
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	output, _, _ := transform.String(t, s)
-	// Một số ký tự trong quá trình test mình thấy cần xử lí thủ công
-	// Ví dụ: nếu ta không làm việc này, search "Kỉ niệm" kết quả sẽ khác "Kỷ niệm"
+	// Chỉ xử lý đ->d, KHÔNG đổi y->i vì sẽ làm sai lệch kết quả
 	output = strings.ReplaceAll(output, "đ", "d")
 	output = strings.ReplaceAll(output, "Đ", "D")
-	output = strings.ReplaceAll(output, "y", "i")
-	output = strings.ReplaceAll(output, "Y", "I")
 	return output
 }
 
@@ -709,6 +735,7 @@ func (s *Searcher) Search(query string) []string {
 	queryNorm := strings.ToLower(Normalize(query))
 	queryRunes := []rune(queryNorm)
 	queryLen := len(queryRunes) // đếm số ký tự, không phải byte
+	queryWords := strings.Fields(queryNorm)
 
 	uniqueResults := make(map[int]int)
 	filePathToIdx := make(map[string]int)
@@ -726,7 +753,12 @@ func (s *Searcher) Search(query string) []string {
 	// Search bằng thư viện fuzzy ở trên
 	matches := fuzzy.Find(queryNorm, s.Normalized)
 	for _, m := range matches {
-		uniqueResults[m.Index] = m.Score
+		// Word bonus tính trên tên file (không phải full path)
+		// Vì user search "ve mua thu" thì nên ưu tiên file tên là "ve mua thu"
+		// không phải file nằm trong folder có chứa các ký tự đó
+		wordMatches := countWordMatches(queryWords, s.FilenamesOnly[m.Index])
+		wordBonus := wordMatches * 3000
+		uniqueResults[m.Index] = m.Score + wordBonus
 	}
 
 	// Ta tính điểm sai chính tả dựa trên Levenshtein
@@ -781,6 +813,11 @@ func (s *Searcher) Search(query string) []string {
 				if lenDiff > 0 {
 					score -= (lenDiff / 2)
 				}
+
+				// Thêm word bonus cho Levenshtein matches
+				// Dùng tên file để tính word matches (không phải full path)
+				wordMatches := countWordMatches(queryWords, s.FilenamesOnly[i])
+				score += wordMatches * 3000
 
 				if oldScore, exists := uniqueResults[i]; !exists || score > oldScore {
 					uniqueResults[i] = score
