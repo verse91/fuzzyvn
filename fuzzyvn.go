@@ -169,6 +169,7 @@ func countWordMatches(queryWords []string, target string) int {
 
 func Normalize(s string) string {
 	// Tách dấu -> xóa dấu -> ghép lại
+	// https://gist.github.com/hmit208/eb319c7497fac01e0d2d5ada9d65511b
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	output, _, _ := transform.String(t, s)
 	// Chỉ xử lý đ->d, KHÔNG đổi y->i vì sẽ làm sai lệch kết quả
