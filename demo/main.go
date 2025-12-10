@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bufio"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log"
 	"net/http"
-	"path/filepath"
+	"os"
 	"sync"
 
 	"github.com/verse91/fuzzyvn"
@@ -51,22 +51,23 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, nil)
 }
 
-func indexFiles(root string) {
-	fmt.Println("Scanning files...")
+func indexFiles(pathsFile string) {
+	fmt.Println("Loading paths from file...")
 	tempFiles := []string{}
 
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() {
-			tempFiles = append(tempFiles, path)
-		}
-		return nil
-	})
+	f, err := os.Open(pathsFile)
 	if err != nil {
-		log.Println("Error scanning:", err)
+		log.Println("Error opening paths file:", err)
 		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line != "" {
+			tempFiles = append(tempFiles, line)
+		}
 	}
 
 	var newSearcher *fuzzyvn.Searcher
@@ -193,7 +194,7 @@ func cacheInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	go indexFiles("./test_data/")
+	go indexFiles("./test_data/test_paths_100k.txt")
 
 	http.HandleFunc("/", handleHome)
 	http.HandleFunc("/search", search)

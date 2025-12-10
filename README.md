@@ -76,26 +76,50 @@ Query người dùng
                     Top 20 kết quả
 ```
 ## Benchmark
+- Lưu ý rằng benchmark này chỉ thực hiện trên một laptop bình thường
+
 ```bash
 > go test -bench=BenchmarkSearch -benchmem
 
-Search 'son tung' trong 2938 files... tìm thấy 20 kết quả trong 6.880767ms
-Search 'ky niem' trong 2938 files... tìm thấy 20 kết quả trong 5.81573ms
-Search 'lac troi' trong 2938 files... tìm thấy 20 kết quả trong 6.811993ms
+Search 'son tung' trong 2938 files... tìm thấy 20 kết quả trong 1.51568ms
+Search 'ky niem' trong 2938 files... tìm thấy 20 kết quả trong 1.042098ms
+Search 'lac troi' trong 2938 files... tìm thấy 20 kết quả trong 979.804µs
 goos: linux
 goarch: amd64
 pkg: github.com/verse91/fuzzyvn
-cpu: AMD Ryzen 7 PRO 7840HS w/ Radeon 780M Graphics
-BenchmarkSearch/100_files-16    	   15002	     89210 ns/op	   37784 B/op	     256 allocs/op
-BenchmarkSearch/1000_files-16   	    1428	    894571 ns/op	  254888 B/op	    2170 allocs/op
-BenchmarkSearch/10000_files-16  	     100	  11218602 ns/op	 2476361 B/op	   21146 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16                	     858	   1428158 ns/op	  375832 B/op	    2381 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16             	     895	   1456187 ns/op	  374664 B/op	    2377 allocs/op
-BenchmarkSearchWithCache-16                                   	    1387	    919504 ns/op	  255176 B/op	    2174 allocs/op
+cpu: AMD Ryzen 7 PRO 7840HS w/ Radeon 780M Graphics 
+BenchmarkNewSearcher-16         	     402	   3012563 ns/op	17585024 B/op	   13005 allocs/op
+BenchmarkSearch/100_files-16    	   27104	     44289 ns/op	   56752 B/op	     486 allocs/op
+BenchmarkSearch/1000_files-16   	    4700	    247986 ns/op	  360982 B/op	    2368 allocs/op
+BenchmarkSearch/10000_files-16  	     516	   2414495 ns/op	 3393652 B/op	   20491 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16                	    2473	    449232 ns/op	  502476 B/op	    2309 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16             	    2697	    443719 ns/op	  501403 B/op	    2305 allocs/op
+BenchmarkSearchWithCache-16                                   	    4078	    294842 ns/op	  361230 B/op	    2372 allocs/op
+BenchmarkNormalize-16                                         	   85342	     13355 ns/op	   46152 B/op	      39 allocs/op
+BenchmarkLevenshteinRatio-16                                  	 3456462	       337.5 ns/op	     320 B/op	       4 allocs/op
+BenchmarkRecordSelection-16                                   	  528936	      2278 ns/op	    8789 B/op	       8 allocs/op
+BenchmarkGetBoostScores-16                                    	   41019	     29497 ns/op	   25112 B/op	     311 allocs/op
 PASS
-ok  	github.com/verse91/fuzzyvn	9.051s
+ok  	github.com/verse91/fuzzyvn	15.259s
 
 ```
+
+## Kết quả benchmark
+
+| Benchmark | Time | Memory |
+|-----------|------|--------|
+| **NewSearcher** | 3.0ms | 17.5MB |
+| **Search 100 files** | 44µs | 56KB |
+| **Search 1,000 files** | 248µs | 360KB |
+| **Search 10,000 files** | **2.4ms** | 3.4MB |
+| **Tiếng Việt có dấu** | 449µs | 502KB |
+| **Tiếng Việt không dấu** | 444µs | 501KB |
+| **Search với Cache** | 295µs | 361KB |
+| **Normalize** | 13µs | 46KB |
+| **LevenshteinRatio** | 338ns | 320B |
+| **RecordSelection** | 2.3µs | 8.7KB |
+| **GetBoostScores** | 29µs | 25KB |
+
 
 # Cách dùng
 

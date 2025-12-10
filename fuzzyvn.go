@@ -39,7 +39,6 @@ fuzzyvn.go Structure:
 │   ├── Size
 │   └── Clear
 └── Searcher Methods
-
 	├── NewSearcher
 	├── NewSearcherWithCache
 	├── Search
