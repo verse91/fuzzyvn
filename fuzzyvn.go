@@ -6,40 +6,46 @@ Version: v0.1.6
 License: 0BSD
 ----------------
 
-Structures:
-fuzzyvn.go
-├── Package + Imports (line 43-56)
-├── Types (line 58-95)
+fuzzyvn.go Structure:
+├── Types + Constants
 │   ├── CacheEntry
 │   ├── QueryCache
 │   ├── Searcher
-│   └── MatchResult
-├── Utility Functions (line 97-139)
-│   ├── Normalize()
-│   └── LevenshteinRatio()
-├── QueryCache Internal Methods (line 141-216)
-│   ├── querySimilarity()  (private)
-│   ├── moveToFront()      (private)
-│   └── evictIfNeeded()    (private)
-├── QueryCache Public Methods (line 218-456)
-│   ├── NewQueryCache()
-│   ├── SetMaxQueries()
-│   ├── SetBoostScore()
-│   ├── RecordSelection()
-│   ├── GetBoostScores()
-│   ├── GetRecentQueries()
-│   ├── GetCachedFiles()
-│   ├── GetAllRecentFiles()
-│   ├── Size()
-│   └── Clear()
-└── Searcher (line 458-609)
+│   ├── MatchResult
+│   ├── FuzzyMatch
+│   └── Scoring constants
+├── Utility Functions
+│   ├── abs
+│   ├── countWordMatches
+│   ├── Normalize
+│   ├── LevenshteinRatio
+│   └── isWordBoundary
+├── Fuzzy Matcher - zero-dependency, greedy algorithm
+│   ├── fuzzyScoreGreedy
+│   ├── FuzzyFind
+│   └── FuzzyFindParallel
+├── QueryCache Methods
+│   ├── querySimilarity (private)
+│   ├── moveToFront (private)
+│   ├── evictIfNeeded (private)
+│   ├── NewQueryCache
+│   ├── SetMaxQueries
+│   ├── SetBoostScore
+│   ├── RecordSelection
+│   ├── GetBoostScores
+│   ├── GetRecentQueries
+│   ├── GetCachedFiles
+│   ├── GetAllRecentFiles
+│   ├── Size
+│   └── Clear
+└── Searcher Methods
 
-	├── NewSearcher()
-	├── NewSearcherWithCache()
-	├── Search()
-	├── RecordSelection()
-	├── GetCache()
-	└── ClearCache()
+	├── NewSearcher
+	├── NewSearcherWithCache
+	├── Search
+	├── RecordSelection
+	├── GetCache
+	└── ClearCache
 */
 package fuzzyvn
 
@@ -94,6 +100,32 @@ type MatchResult struct {
 	Str   string
 	Score int
 }
+
+/*
+FuzzyMatch: Kết quả của một fuzzy match
+- Index: Vị trí trong danh sách input
+- Score: Điểm match (cao = tốt hơn)
+- Positions: Vị trí các ký tự matched (dùng cho highlight)
+*/
+type FuzzyMatch struct {
+	Index     int
+	Score     int
+	Positions []int
+}
+
+/*
+Scoring constants - các hằng số tính điểm
+Được tinh chỉnh để cho kết quả tốt nhất với tiếng Việt và file paths
+*/
+const (
+	scoreMatch       = 16 // Điểm cho mỗi ký tự match
+	bonusFirstChar   = 24 // Bonus khi match ký tự đầu tiên
+	bonusBoundary    = 20 // Bonus khi match sau word boundary (/, _, -, .)
+	bonusConsecutive = 28 // Bonus cho match liên tiếp
+	bonusCamelCase   = 16 // Bonus khi match chữ hoa (camelCase)
+	bonusAfterSlash  = 24 // Bonus đặc biệt sau / (quan trọng cho file paths)
+	penaltyGap       = -2 // Penalty cho mỗi ký tự gap
+)
 
 // =============================================================================
 // Utility Functions
@@ -247,37 +279,6 @@ func LevenshteinRatio(s1, s2 string) int {
 	return column[s1Len]
 }
 
-// =============================================================================
-// Smith-Waterman Fuzzy Matcher (inspired by nucleo/helix-editor)
-// https://github.com/helix-editor/nucleo
-// =============================================================================
-
-/*
-FuzzyMatch: Kết quả của một fuzzy match
-- Index: Vị trí trong danh sách input
-- Score: Điểm match (cao = tốt hơn)
-- Positions: Vị trí các ký tự matched (dùng cho highlight)
-*/
-type FuzzyMatch struct {
-	Index     int
-	Score     int
-	Positions []int
-}
-
-/*
-Scoring constants - các hằng số tính điểm
-Được tinh chỉnh để cho kết quả tốt nhất với tiếng Việt và file paths
-*/
-const (
-	scoreMatch       = 16 // Điểm cho mỗi ký tự match
-	bonusFirstChar   = 24 // Bonus khi match ký tự đầu tiên
-	bonusBoundary    = 20 // Bonus khi match sau word boundary (/, _, -, .)
-	bonusConsecutive = 28 // Bonus cho match liên tiếp
-	bonusCamelCase   = 16 // Bonus khi match chữ hoa (camelCase)
-	bonusAfterSlash  = 24 // Bonus đặc biệt sau / (quan trọng cho file paths)
-	penaltyGap       = -2 // Penalty cho mỗi ký tự gap
-)
-
 /*
 isWordBoundary: Kiểm tra ký tự có phải word boundary không
 */
@@ -285,9 +286,14 @@ func isWordBoundary(r rune) bool {
 	return r == ' ' || r == '/' || r == '_' || r == '-' || r == '.' || r == '\\'
 }
 
+// =============================================================================
+// Fuzzy Matcher
+// =============================================================================
+
 /*
 fuzzyScoreGreedy: Tính điểm fuzzy match sử dụng Greedy algorithm
-Nhanh hơn Smith-Waterman (~5-10x) với kết quả tương đương
+- Không phải Smith-Waterman như nucleo, mà là greedy forward matching đơn giản hơn
+- Trade-off: Nhanh hơn nhưng không tìm được optimal match trong mọi trường hợp
 - pattern: Query đã normalize
 - target: Target string đã normalize
 - Trả về: (matched bool, score int, positions []int)
