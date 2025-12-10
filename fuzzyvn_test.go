@@ -720,7 +720,7 @@ func generateTestFiles(n int) []string {
 	names := []string{"main", "config", "test", "utils", "helper", "server", "client", "api", "model", "view"}
 	exts := []string{".go", ".yaml", ".json", ".md", ".txt"}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		name := names[i%len(names)]
 		ext := exts[i%len(exts)]
 		files[i] = fmt.Sprintf("/project/src/%s_%d%s", name, i, ext)

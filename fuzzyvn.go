@@ -39,6 +39,7 @@ fuzzyvn.go Structure:
 │   ├── Size
 │   └── Clear
 └── Searcher Methods
+
 	├── NewSearcher
 	├── NewSearcherWithCache
 	├── Search
@@ -290,12 +291,13 @@ func isWordBoundary(r rune) bool {
 // =============================================================================
 
 /*
-fuzzyScoreGreedy: Tính điểm fuzzy match sử dụng Greedy algorithm
-- Không phải Smith-Waterman như nucleo, mà là greedy forward matching đơn giản hơn
-- Trade-off: Nhanh hơn nhưng không tìm được optimal match trong mọi trường hợp
+fuzzyScoreGreedy: Tính điểm fuzzy match sử dụng thuật toán tham lam
 - pattern: Query đã normalize
 - target: Target string đã normalize
 - Trả về: (matched bool, score int, positions []int)
+- Cách này có 1 vấn đề nho nhỏ, là do tham lam
+- Nó có thể bỏ qua một match tốt hơn ở sau để chọn match đầu tiên tìm được
+- Nhưng bù lại cực nhanh vì chỉ duyệt target 1 lần
 */
 func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
 	pLen := len(pattern)
@@ -308,7 +310,7 @@ func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
 		return false, 0, nil
 	}
 
-	// Greedy forward pass: tìm match đầu tiên
+	// Tìm match đầu tiên
 	positions := make([]int, 0, pLen)
 	pi := 0
 	for ti := 0; ti < tLen && pi < pLen; ti++ {
@@ -341,6 +343,7 @@ func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
 			score += bonusConsecutive
 		} else if prevMatchIdx >= 0 {
 			// Gap penalty (tính theo số ký tự gap)
+			// ví dụ: query mt trong main_test.go có gap lớn
 			gap := pos - prevMatchIdx - 1
 			if gap > 0 && gap < 10 {
 				score += penaltyGap * gap
@@ -358,6 +361,7 @@ func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
 				}
 			}
 			// CamelCase bonus
+			// ví dụ: query fs khớp với fileSystem
 			if prevChar >= 'a' && prevChar <= 'z' && target[pos] >= 'A' && target[pos] <= 'Z' {
 				score += bonusCamelCase
 			}
@@ -380,7 +384,10 @@ func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
 FuzzyFind: Tìm tất cả targets khớp với pattern
 - pattern: Query string (đã lowercase + normalize)
 - targets: Danh sách strings để search
-- Trả về: Slice of FuzzyMatch, sorted by score descending
+- Duyệt qua từng target trong danh sách targets
+- Gọi fuzzyScoreGreedy cho từng cặp (pattern, target)
+- Nếu match thì thêm vào results (Index, Score, Positions)
+- Xong sort theo score giảm dần
 */
 func FuzzyFind(pattern string, targets []string) []FuzzyMatch {
 	patternRunes := []rune(pattern)
@@ -412,6 +419,10 @@ func FuzzyFind(pattern string, targets []string) []FuzzyMatch {
 
 /*
 FuzzyFindParallel: Version parallel của FuzzyFind
+- OK giờ bạn sẽ thắc mắc như này: "Tại sao lại cần FuzzyFind khi đã có parrallel version?"
+- Lý do chính là để giảm thiểu chi phí overhead khi xử lý các tập dữ liệu nhỏ
+- Bởi vậy nên đoạn ở dưới mới có if numTargets < 1000 thì dùng FuzzyFind đó
+- Dưới 1000 files dùng FuzzyFind thay vì FuzzyFindParallel để tránh overhead, vẫn đảm bảo tốc độ
 Sử dụng goroutines để tăng tốc với datasets lớn
 - pattern: Query string
 - targets: Danh sách strings để search
@@ -424,21 +435,53 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 	}
 
 	numTargets := len(targets)
-	// Chỉ dùng parallel nếu có đủ data
+	// Chỉ dùng parallel nếu dataset lớn
 	if numTargets < 1000 {
 		return FuzzyFind(pattern, targets)
 	}
 
+	/*
+		Thường đúng ra thì để tận dụng tối đa nên dùng công thức: workers = tổng số luồng
+		Ví dụ: 4 nhân, 4 luồng -> 16 workers
+		Nhưng mà trong thực tế thì không phải lúc nào cũng tận dụng tối đa
+		Nên ta chỉ dùng 16 workers
+		Vì dùng ít hơn thì lãng phí, còn dùng nhiều hơn thì overhead
+		Nhưng mà cho dù số luồng nhiều hơn nữa như 32, 64 vẫn nên dùng max là 16 thôi vì overhead lúc này cao hơn lợi ích mang lại
+	*/
 	numWorkers := runtime.NumCPU()
 	if numWorkers > 16 {
-		numWorkers = 16 // Cap để tránh overhead
+		numWorkers = 16
 	}
+	/*
+		Trong chia số nguyên của Go nó bị làm tròn xuống, ví dụ 10 việc mà chia 3 người, sẽ là 3 việc mỗi người
+		Ta sẽ bị thiếu đi 1 việc thứ 10
+		Chúng ta muốn: Nếu chia không hết, thì mỗi người phải gánh thêm một chút để đảm bảo không bỏ sót việc nào
+		Tức là 10 / 3 phải bằng 4, chứ không phải 3
+		Và ta có công thức làm tròn lên (A+B-1)/B
+		Và giờ bạn sẽ thắc mắc, thế còn 9 khi chia hết?
+		Cũng như trên, ta có (9+3-1)/3 = 11/3 = 3 vì ta lợi dụng lại phép chia số nguyên Go như ta đã nói sẽ tự làm tròn xuống thành 3 cho dù 3.66
+		Và ra 3 thì vẫn chia đúng việc 3 người
 
+		Ví dụ:
+		a10 := 10
+		a9 := 9
+		b := 3
+		fmt.Println((a10 + b - 1) / 3) // 4
+		fmt.Println((a9 + b - 1) / 3) // 3
+
+		Có thể bạn sẽ thắc mắc thêm chia việc cho các workers ở chunksizes = 4
+		Khi đó A -> làm 4 việc
+		B -> làm 4 việc
+		C -> làm 2 việc
+		Thật ra C phải làm 4 nhưng ta đã handle bằng cách cho end = numTargets khi end > numTargets (đoạn code for bên dưới)
+		Vậy nên làm 2 việc thôi, và tổng vẫn 10
+		Với 9 việc thì chia 3 vẫn ra 3 nên không có gì xảy ra
+	*/
 	chunkSize := (numTargets + numWorkers - 1) / numWorkers
 	resultChan := make(chan []FuzzyMatch, numWorkers)
 
 	var wg sync.WaitGroup
-	for w := 0; w < numWorkers; w++ {
+	for w := range numWorkers {
 		start := w * chunkSize
 		end := start + chunkSize
 		if end > numTargets {
@@ -469,19 +512,18 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 		}(start, end)
 	}
 
-	// Close channel when done
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
-	// Collect results
+	// Collect results từ từng worker
 	var allResults []FuzzyMatch
 	for localResults := range resultChan {
 		allResults = append(allResults, localResults...)
 	}
 
-	// Sort by score descending
+	// Sắp xếp kết quả theo score giảm dần
 	sort.Slice(allResults, func(i, j int) bool {
 		return allResults[i].Score > allResults[j].Score
 	})
