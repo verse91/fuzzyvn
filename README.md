@@ -75,6 +75,28 @@ Query người dùng
                            ▼
                     Top 20 kết quả
 ```
+## Benchmark
+```bash
+> go test -bench=BenchmarkSearch -benchmem
+
+Search 'son tung' trong 2938 files... tìm thấy 20 kết quả trong 6.880767ms
+Search 'ky niem' trong 2938 files... tìm thấy 20 kết quả trong 5.81573ms
+Search 'lac troi' trong 2938 files... tìm thấy 20 kết quả trong 6.811993ms
+goos: linux
+goarch: amd64
+pkg: github.com/verse91/fuzzyvn
+cpu: AMD Ryzen 7 PRO 7840HS w/ Radeon 780M Graphics
+BenchmarkSearch/100_files-16    	   15002	     89210 ns/op	   37784 B/op	     256 allocs/op
+BenchmarkSearch/1000_files-16   	    1428	    894571 ns/op	  254888 B/op	    2170 allocs/op
+BenchmarkSearch/10000_files-16  	     100	  11218602 ns/op	 2476361 B/op	   21146 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16                	     858	   1428158 ns/op	  375832 B/op	    2381 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16             	     895	   1456187 ns/op	  374664 B/op	    2377 allocs/op
+BenchmarkSearchWithCache-16                                   	    1387	    919504 ns/op	  255176 B/op	    2174 allocs/op
+PASS
+ok  	github.com/verse91/fuzzyvn	9.051s
+
+```
+
 # Cách dùng như một package
 
 ## Tìm kiếm file cơ bản
