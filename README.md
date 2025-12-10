@@ -20,6 +20,7 @@ FuzzyVN là thư viện tìm kiếm file bằng fuzzy finder được tối ưu 
 - [Hệ thống Cache](./docs/cache.md)
 - [Thuật toán](./docs/algorithm.md)
 - [Ví dụ](./docs/examples.md)
+- [Test](./docs/test.md)
 
 ## Tính năng
 
@@ -162,31 +163,6 @@ func main() {
 }
 ```
 
-## Tích hợp Neovim (Lua + Go)
-
-```go
-// Backend cho plugin
-package main
-
-import "github.com/verse91/fuzzyvn"
-
-var searcher *fuzzyvn.Searcher
-
-//export Init
-func Init(files []string) {
-    searcher = fuzzyvn.NewSearcher(files)
-}
-
-//export Search  
-func Search(query string) []string {
-    return searcher.Search(query)
-}
-
-//export Select
-func Select(query, path string) {
-    searcher.RecordSelection(query, path)
-}
-```
 
 ## Tùy chỉnh điểm số
 

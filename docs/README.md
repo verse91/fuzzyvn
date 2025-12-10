@@ -10,6 +10,7 @@ FuzzyVN là thư viện tìm kiếm file mờ (fuzzy finder) được tối ưu 
 - [Hệ thống Cache](./cache.md)
 - [Thuật toán](./algorithm.md)
 - [Ví dụ](./examples.md)
+- [Test](./test.md)
 
 ## Tính năng
 
