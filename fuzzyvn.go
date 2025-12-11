@@ -7,7 +7,7 @@ License: 0BSD
 ----------------
 
 fuzzyvn.go Structure:
-├── Types + Constants
+├── Types + Pool
 │   ├── CacheEntry
 │   ├── QueryCache
 │   ├── Searcher
@@ -16,7 +16,13 @@ fuzzyvn.go Structure:
 │   └── Scoring constants
 ├── Utility Functions
 │   ├── abs
+
+	├── isSeparator
+
 │   ├── countWordMatches
+
+	├──fastSubstring
+
 │   ├── Normalize
 │   ├── LevenshteinRatio
 │   └── isWordBoundary
@@ -87,10 +93,11 @@ type QueryCache struct {
 }
 
 type Searcher struct {
-	Originals     []string    // Data gốc (có dấu, viết hoa thường lộn xộn bla bla). Dùng để trả về kết quả hiển thị
-	Normalized    []string    // Data đã chuẩn hóa cho fuzzy search
-	FilenamesOnly []string    // Chỉ chứa tên file đã chuẩn hóa (bỏ đường dẫn). Dùng cho thuật toán Levenshtein (sửa lỗi chính tả)
-	Cache         *QueryCache // Để lấy dữ liệu lịch sử
+	Originals     []string       // Data gốc (có dấu, viết hoa thường lộn xộn bla bla). Dùng để trả về kết quả hiển thị
+	Normalized    []string       // Data đã chuẩn hóa cho fuzzy search
+	FilenamesOnly []string       // Chỉ chứa tên file đã chuẩn hóa (bỏ đường dẫn). Dùng cho thuật toán Levenshtein (sửa lỗi chính tả)
+	FilePathToIdx map[string]int // Nhằm mục đích không phải tạo lại mỗi lần Search
+	Cache         *QueryCache    // Để lấy dữ liệu lịch sử
 }
 
 /*
@@ -105,34 +112,22 @@ type MatchResult struct {
 FuzzyMatch: Kết quả của một fuzzy match
 - Index: Vị trí trong danh sách input
 - Score: Điểm match (cao = tốt hơn)
-- Positions: Vị trí các ký tự matched (dùng cho highlight)
 */
 type FuzzyMatch struct {
-	Index     int
-	Score     int
-	Positions []int
+	Index int
+	Score int
 }
 
-/*
-Scoring constants - các hằng số tính điểm
-Được tinh chỉnh để cho kết quả tốt nhất với tiếng Việt và file paths
-*/
-const (
-	scoreMatch       = 16 // Điểm cho mỗi ký tự match
-	bonusFirstChar   = 24 // Bonus khi match ký tự đầu tiên
-	bonusBoundary    = 20 // Bonus khi match sau word boundary (/, _, -, .)
-	bonusConsecutive = 28 // Bonus cho match liên tiếp
-	bonusCamelCase   = 16 // Bonus khi match chữ hoa (camelCase)
-	bonusAfterSlash  = 24 // Bonus đặc biệt sau / (quan trọng cho file paths)
-	penaltyGap       = -2 // Penalty cho mỗi ký tự gap
-)
-
-/*
-- intSlicePool: Chuẩn hóa slice int
-*/
 var intSlicePool = sync.Pool{
 	New: func() interface{} {
 		s := make([]int, 0, 64)
+		return &s
+	},
+}
+
+var targetRunePool = sync.Pool{
+	New: func() interface{} {
+		s := make([]rune, 0, 256)
 		return &s
 	},
 }
@@ -146,6 +141,11 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func isSeparator(r rune) bool {
+	// Liệt kê các ký tự ngăn cách phổ biến trong code/path
+	return r == '/' || r == '\\' || r == '_' || r == '-' || r == '.' || r == ' ' || r == ':'
 }
 
 func countWordMatches(queryWords []string, target string) int {
@@ -186,6 +186,39 @@ func Normalize(s string) string {
 	output = strings.ReplaceAll(output, "đ", "d")
 	output = strings.ReplaceAll(output, "Đ", "D")
 	return output
+}
+
+func fastSubstring(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+
+	count := 0
+	/*
+		Tại sao ta không dùng for i := 0; i < len(s); i++?
+		Hàm len(s) trả về số lượng BYTE, không phải số lượng KÝ TỰ
+		Ta có thể lợi dụng cách range hoạt động trong Go
+		range s trong Go sẽ tự động nhảy theo TỪNG KÝ TỰ (Rune), không phải từng byte
+	*/
+	for i := range s {
+		if count == n {
+			// Tại thời điểm này, 'i' đang đứng đúng ở vị trí byte kết thúc ký tự thứ n
+			// s[:i] là thao tác "Slice string"
+			// Nó KHÔNG copy dữ liệu, nó chỉ trỏ vào vùng nhớ cũ
+			return s[:i] // Cắt chuỗi tại byte index (Zero Alloc)
+		}
+		count++
+	}
+	/*
+		Ví dụ:
+		Chuỗi "âb" (giả sử â là 2 byte, b là 1 byte). Tổng 3 byte. Cần lấy 1 ký tự (n=1)
+		Vòng lặp chạy lần 1: Đọc chữ â
+		count tăng lên 1. count == n (1==1)
+		Biến i lúc này đang ở vị trí byte tiếp theo (tức là byte số 2).
+		return s[:2] -> Trả về đúng chữ â
+	*/
+
+	return s
 }
 
 /*
@@ -344,85 +377,110 @@ fuzzyScoreGreedy: Tính điểm fuzzy match sử dụng thuật toán tham lam
 - Nó có thể bỏ qua một match tốt hơn ở sau để chọn match đầu tiên tìm được
 - Nhưng bù lại cực nhanh vì chỉ duyệt target 1 lần
 */
-func fuzzyScoreGreedy(pattern, target []rune) (bool, int, []int) {
-	pLen := len(pattern)
-	tLen := len(target)
+func fuzzyScoreGreedy(pattern []rune, target []rune) (int, bool) {
+	lenP := len(pattern)
+	lenT := len(target)
 
-	if pLen == 0 {
-		return true, 0, nil
-	}
-	if pLen > tLen {
-		return false, 0, nil
+	if lenP > lenT {
+		return 0, false
 	}
 
-	// Tìm match đầu tiên
-	positions := make([]int, 0, pLen)
-	pi := 0
-	for ti := 0; ti < tLen && pi < pLen; ti++ {
-		if pattern[pi] == target[ti] {
-			positions = append(positions, ti)
-			pi++
-		}
-	}
+	totalScore := 0
 
-	// Không match hết pattern
-	if pi < pLen {
-		return false, 0, nil
-	}
+	// Index của ký tự khớp trước đó trong target
+	prevMatchIdx := -1
 
-	// Tính score
-	score := 0
-	prevMatchIdx := -2 // -2 để phân biệt với -1 (không có prev)
+	// Index hiện tại đang xét trong target
+	targetIdx := 0
 
-	for i, pos := range positions {
-		// Base score cho match
-		score += scoreMatch
+	for pIdx := range lenP {
+		pChar := pattern[pIdx]
+		found := false
 
-		// Bonus cho ký tự đầu tiên của pattern
-		if i == 0 && pos == 0 {
-			score += bonusFirstChar
-		}
+		bestScore := -1
+		bestIdx := -1
 
-		// Bonus cho match liên tiếp
-		if pos == prevMatchIdx+1 {
-			score += bonusConsecutive
-		} else if prevMatchIdx >= 0 {
-			// Gap penalty (tính theo số ký tự gap)
-			// ví dụ: query mt trong main_test.go có gap lớn
-			gap := pos - prevMatchIdx - 1
-			if gap > 0 && gap < 10 {
-				score += penaltyGap * gap
-			}
-		}
+		// GREEDY LOOK-AHEAD:
+		// Thay vì lấy ngay ký tự tìm thấy đầu tiên, ta quét hết phần còn lại
+		// để tìm xem có ký tự nào ngon hơn không (ví dụ: đầu từ)
+		// Tuy nhiên quét hết thì chậm O(n*m).
+		// Ta dùng chiến thuật: Tìm ký tự đầu tiên -> Lưu lại
+		// Nếu nó KHÔNG PHẢI đầu từ, thì ráng tìm tiếp xem có cái nào là đầu từ không
 
-		// Boundary bonus
-		if pos > 0 {
-			prevChar := target[pos-1]
-			if isWordBoundary(prevChar) {
-				if prevChar == '/' || prevChar == '\\' {
-					score += bonusAfterSlash
+		for t := targetIdx; t < lenT; t++ {
+			tChar := target[t]
+
+			if tChar == pChar {
+				// Tính điểm sơ bộ cho vị trí này
+				score := 0
+
+				// Thưởng đầu từ
+				// Ký tự là đầu từ nếu: nó là ký tự đầu tiên OR ký tự trước nó là dấu ngăn cách
+				isWordStart := false
+				if t == 0 {
+					isWordStart = true
 				} else {
-					score += bonusBoundary
+					prevChar := target[t-1]
+					// Check separator: dấu cách, _, -, /, .
+					if isSeparator(prevChar) {
+						isWordStart = true
+					} else if unicode.IsLower(prevChar) && unicode.IsUpper(tChar) {
+						// CamelCase (aB) -> B là đầu từ
+						isWordStart = true
+					}
+				}
+
+				if isWordStart {
+					score += 80 // Thưởng đậm cho đầu từ
+				} else {
+					score += 10 // Điểm cơ bản
+				}
+
+				// Thưởng liền kề
+				if prevMatchIdx != -1 && t == prevMatchIdx+1 {
+					score += 40 // Thưởng cho việc gõ liền mạch
+				}
+
+				// Phạt khoảng cách
+				// Logic: Càng xa ký tự trước càng trừ điểm
+				/* Phần này làm Greedy phức tạp, ở đây ta đơn giản hóa:
+				   Nếu tìm thấy WordStart -> CHỐT LUÔN (Greedy lấy cái tốt nhất)
+				   Nếu tìm thấy ký tự thường -> Lưu tạm, tìm tiếp xem có WordStart không
+				*/
+
+				if isWordStart {
+					bestScore = score
+					bestIdx = t
+					found = true
+					break // Tìm thấy đầu từ rồi, lấy luôn không cần tìm nữa
+				}
+
+				// Nếu chưa có
+				if bestIdx == -1 {
+					bestScore = score
+					bestIdx = t
+					found = true
 				}
 			}
-			// CamelCase bonus
-			// ví dụ: query fs khớp với fileSystem
-			if prevChar >= 'a' && prevChar <= 'z' && target[pos] >= 'A' && target[pos] <= 'Z' {
-				score += bonusCamelCase
-			}
 		}
 
-		prevMatchIdx = pos
+		if !found {
+			return 0, false // Không tìm thấy ký tự pattern
+		}
+
+		// Chốt phương án cho ký tự pattern này
+		totalScore += bestScore
+		prevMatchIdx = bestIdx
+
+		// Ký tự tiếp theo của pattern phải tìm sau vị trí này
+		targetIdx = bestIdx + 1
 	}
 
-	// Penalty cho target dài (ưu tiên match ngắn hơn)
-	lengthPenalty := (tLen - pLen) / 5
-	if lengthPenalty > 20 {
-		lengthPenalty = 20
-	}
-	score -= lengthPenalty
+	// Phạt độ dài (để ưu tiên chuỗi ngắn hơn khi cùng điểm match)
+	// Ví dụ search "app" thì "App" (3) ngon hơn "Application" (11)
+	totalScore -= (lenT - lenP)
 
-	return true, score, positions
+	return totalScore, true
 }
 
 /*
@@ -435,25 +493,40 @@ FuzzyFind: Tìm tất cả targets khớp với pattern
 - Xong sort theo score giảm dần
 */
 func FuzzyFind(pattern string, targets []string) []FuzzyMatch {
-	patternRunes := []rune(pattern)
+	patternRunes := []rune(strings.ToLower(Normalize(pattern))) // 1 alloc
 	if len(patternRunes) == 0 {
 		return nil
 	}
+	// Pre-allocate slice kết quả để tránh resize liên tục
+	results := make([]FuzzyMatch, 0, 1000)
 
-	var results []FuzzyMatch
+	for idx, targetStr := range targets {
 
-	for idx, target := range targets {
-		targetRunes := []rune(target)
-		matched, score, positions := fuzzyScoreGreedy(patternRunes, targetRunes)
+		// mượn buffer
+		ptr := targetRunePool.Get().(*[]rune)
+
+		// Ta clear buffer cũ, sau đó append từng rune của target vào
+		targetRunes := *ptr
+		targetRunes = targetRunes[:0]
+		for _, r := range targetStr {
+			targetRunes = append(targetRunes, r)
+		}
+
+		score, matched := fuzzyScoreGreedy(patternRunes, targetRunes)
+
 		if matched {
 			results = append(results, FuzzyMatch{
-				Index:     idx,
-				Score:     score,
-				Positions: positions,
+				Index: idx,
+				Score: score,
 			})
 		}
-	}
 
+		// IMPORTANT: TRẢ BUFFER VỀ POOL
+		// Vì targetRunes là slice header mới trỏ vào mảng nền của ptr
+		// Nên ta put cái mảng nền (đã mở rộng capacity nếu cần) lại vào pool
+		*ptr = targetRunes
+		targetRunePool.Put(ptr)
+	}
 	// Sort by score descending
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
@@ -539,18 +612,24 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
-			var localResults []FuzzyMatch
+			localResults := make([]FuzzyMatch, 0, (end-start)/10)
 
 			for i := start; i < end; i++ {
-				targetRunes := []rune(targets[i])
-				matched, score, positions := fuzzyScoreGreedy(patternRunes, targetRunes)
+				ptr := targetRunePool.Get().(*[]rune)
+				targetRunes := *ptr
+				targetRunes = targetRunes[:0]
+				for _, r := range targets[i] {
+					targetRunes = append(targetRunes, r)
+				}
+				score, matched := fuzzyScoreGreedy(patternRunes, targetRunes)
 				if matched {
 					localResults = append(localResults, FuzzyMatch{
-						Index:     i,
-						Score:     score,
-						Positions: positions,
+						Index: i,
+						Score: score,
 					})
 				}
+				*ptr = targetRunes
+				targetRunePool.Put(ptr)
 			}
 
 			resultChan <- localResults
@@ -563,7 +642,7 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 	}()
 
 	// Collect results từ từng worker
-	var allResults []FuzzyMatch
+	allResults := make([]FuzzyMatch, 0, 1000)
 	for localResults := range resultChan {
 		allResults = append(allResults, localResults...)
 	}
@@ -1016,21 +1095,28 @@ func (c *QueryCache) Clear() {
 - items: Danh sách đường dẫn file cần index
 */
 func NewSearcher(items []string) *Searcher {
+	originals := make([]string, len(items))
 	normPaths := make([]string, len(items))
 	normNames := make([]string, len(items))
+	pathMap := make(map[string]int, len(items))
 
 	for i, item := range items {
+		originals[i] = item
 		filename := filepath.Base(item)
 		// Ưu tiên tên file, theo path thì điểm thấp hơn
 		priorityString := filename + " " + item
 		normPaths[i] = strings.ToLower(Normalize(priorityString))
 		normNames[i] = strings.ToLower(Normalize(filename))
+
+		// Map trong cache để sau này server tìm trong các file gốc nhanh hơn
+		pathMap[item] = i
 	}
 
 	return &Searcher{
 		Originals:     items,
 		Normalized:    normPaths,
 		FilenamesOnly: normNames,
+		FilePathToIdx: pathMap,
 		Cache:         NewQueryCache(),
 	}
 }
@@ -1062,16 +1148,16 @@ fmt.Println(len(runes))  // 8 (đúng 8 ký tự)
 */
 func (s *Searcher) Search(query string) []string {
 	queryNorm := strings.ToLower(Normalize(query))
-	queryRunes := []rune(queryNorm)
-	queryLen := len(queryRunes) // đếm số ký tự, không phải byte
+	// đếm số ký tự, không phải byte
+	queryLen := 0
+	for range queryNorm {
+		queryLen++
+	}
 	queryWords := strings.Fields(queryNorm)
 
-	uniqueResults := make(map[int]int)
-	filePathToIdx := make(map[string]int)
+	// Ước lượng capacity là để hạn chế resize
+	uniqueResults := make(map[int]int, 50)
 
-	for i, fp := range s.Originals {
-		filePathToIdx[fp] = i
-	}
 	// Ví dụ: User từng search "main" và chọn main.go nhiều lần:
 	// cacheBoosts = {"/a/main.go": 5000}
 	var cacheBoosts map[string]int
@@ -1111,9 +1197,6 @@ func (s *Searcher) Search(query string) []string {
 	// Tức là nếu user gõ "maain" hay "mian" thì ta vẫn tính điểm cho "main"
 	// Threshold = (queryLen / 3) + 1: cho phép khoảng 1 lỗi mỗi 3 ký tự + 1 lỗi bonus
 	// Minimum threshold = 3: query ngắn (2-5 ký tự) vẫn cần đủ độ linh hoạt để match
-	//
-	// OPTIMIZATION: Skip Levenshtein nếu Fuzzy đã tìm đủ kết quả tốt
-	// Điều này giảm ~80% thời gian search cho datasets lớn
 	needLevenshtein := len(uniqueResults) < 20
 	if queryLen > 1 && needLevenshtein {
 		baseThreshold := (queryLen / 3) + 1
@@ -1122,28 +1205,31 @@ func (s *Searcher) Search(query string) []string {
 		}
 
 		for i, nameNorm := range s.FilenamesOnly {
-			runesName := []rune(nameNorm)
-
-			if len(runesName) < queryLen {
+			// Thay vì: runesName := []rune(nameNorm)
+			// Ta kiểm tra độ dài bằng len() byte trước cho nhanh (sơ loại)
+			if len(nameNorm) < queryLen {
 				continue
 			}
 
-			dist := 100
-
 			// So sánh với phần đầu của filename
-			targetStr1 := string(runesName[:queryLen])
-			d1 := LevenshteinRatio(queryNorm, targetStr1)
-			dist = d1
+			targetStr1 := fastSubstring(nameNorm, queryLen)
+			// Nếu sau khi cắt mà độ dài vẫn ngắn hơn query (do ký tự utf8) thì bỏ
+			if len(targetStr1) < len(queryNorm) { // so sánh byte length ok vì đã normalized
+				continue
+			}
+
+			dist := LevenshteinRatio(queryNorm, targetStr1)
 
 			// So sánh thêm 1 ký tự (phòng trường hợp typo thêm ký tự)
-			if len(runesName) > queryLen {
-				targetStr2 := string(runesName[:queryLen+1])
+			if len(nameNorm) > len(targetStr1) {
+				// Lấy prefix dài hơn 1 rune
+				targetStr2 := fastSubstring(nameNorm, queryLen+1)
+
 				d2 := LevenshteinRatio(queryNorm, targetStr2)
 				if d2 < dist {
 					dist = d2
 				}
 			}
-
 			/*
 				Ở phần trên ví dụ như "mian", target 1 là "main" target 2 là "maina"
 				Ta tính điểm ở target 1, dist = d1 = 2, nhưng ở target 2, dist = d2 = 3
@@ -1158,8 +1244,11 @@ func (s *Searcher) Search(query string) []string {
 			// Robust solution khi sai chính tả đi quá xa (hoặc nếu không thì mong bạn có thể mở PR hỗ trợ mình)
 			if dist < baseThreshold {
 				score := 10000 - (dist * 100)
-
-				lenDiff := len(runesName) - queryLen
+				runeCountName := 0
+				for range nameNorm {
+					runeCountName++
+				}
+				lenDiff := runeCountName - queryLen
 				if lenDiff > 0 {
 					score -= (lenDiff / 2)
 				}
@@ -1190,13 +1279,13 @@ func (s *Searcher) Search(query string) []string {
 		vì nó cũng không có độ chính xác quá cao
 	*/
 	for cachedPath, boost := range cacheBoosts {
-		if idx, exists := filePathToIdx[cachedPath]; exists {
+		// Tra cứu trực tiếp từ map đã pre-compute
+		if idx, exists := s.FilePathToIdx[cachedPath]; exists {
 			if _, alreadyInResults := uniqueResults[idx]; !alreadyInResults {
-				uniqueResults[idx] = boost // Không làm hỏng kết quả khác vì chỉ thêm khi chưa có
+				uniqueResults[idx] = boost
 			}
 		}
 	}
-
 	/*
 		File: "/a/main.go"
 		Fuzzy score: 85
