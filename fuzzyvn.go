@@ -127,6 +127,16 @@ const (
 	penaltyGap       = -2 // Penalty cho mỗi ký tự gap
 )
 
+/*
+- intSlicePool: Chuẩn hóa slice int
+*/
+var intSlicePool = sync.Pool{
+	New: func() interface{} {
+		s := make([]int, 0, 64)
+		return &s
+	},
+}
+
 // =============================================================================
 // Utility Functions
 // =============================================================================
@@ -191,6 +201,7 @@ func Normalize(s string) string {
 > Nếu khác nhau: Thay ký tự này bằng ký tự kia (+1)
 NOTE: 1 điều lưu ý là ta không cần quan tâm chữ hoa, chữ thường vì đã chuẩn hóa rồi
 */
+
 func LevenshteinRatio(s1, s2 string) int {
 	/*
 		4 dòng dưới
@@ -204,11 +215,43 @@ func LevenshteinRatio(s1, s2 string) int {
 	*/
 	s1Len := len(s1)
 	s2Len := len(s2)
-	column := make([]int, len(s1)+1)
+
+	/*
+		Cái này hiểu đơn giản là
+		Ví dụ như: "" -> "ABC" thì ta lấy luôn độ dài s2
+		Ngược lại "ABC" -> "" thì lấy độ dài s1
+		Vì rõ ràng số bước thay đổi từ rỗng thành text, hay text thành rỗng tốn số bước
+		đúng bằng độ dài của nó
+		Điều này giúp ta bỏ qua mấy bước bên dưới, làm tốn thêm phép toán và chậm đi chương trình
+	*/
+	if s1Len == 0 {
+		return s2Len
+	}
+	if s2Len == 0 {
+		return s1Len
+	}
+	// Thay vì cấp phát mới (make) mỗi lần gọi, ta mượn slice từ Pool
+	// Giúp giảm allocation
+	ptr := intSlicePool.Get().(*[]int)
+	column := *ptr
+	// Kiểm tra sức chứa của slice mượn được
+	// Nếu slice mượn được quá bé không đủ chứa (s1Len + 1),
+	// bắt buộc phải cấp phát vùng nhớ mới to hơn.
+	if cap(column) < s1Len+1 {
+		column = make([]int, s1Len+1)
+	}
+	// Resize lại độ dài slice đúng bằng nhu cầu sử dụng
+	column = column[:s1Len+1]
+	// IMPORTAN: Trả lại slice về Pool sau khi tính toán xong.
+	// Phải gán lại *ptr = column phòng trường hợp slice bị tạo mới (re-allocated)
+	defer func() {
+		*ptr = column
+		intSlicePool.Put(ptr)
+	}()
+
 	for y := 1; y <= s1Len; y++ {
 		column[y] = y
 	}
-
 	/*
 			Ở đây mình sẽ giải thích sơ sơ
 			Thay vì dùng ma trận, mình dùng column như 1 stack từ trên xuống vậy, và ta sẽ ghi đè lên cái nào đã dùng
@@ -231,6 +274,7 @@ func LevenshteinRatio(s1, s2 string) int {
 			Bây giờ, hãy xem chuyện gì xảy ra khi ta ép cái bảng trên vào 1 mảng duy nhất (column)
 
 	*/
+
 	for i := 1; i <= s2Len; i++ {
 		column[0] = i    // Ví dụ: "" -> "A" (1 thêm), "" -> "AX" (2 thêm)
 		lastKey := i - 1 // Lưu giá trị cũ của ô chéo trên trái ta đã đề cập
