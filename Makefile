@@ -9,3 +9,6 @@ test:
 
 bench:
 	@go test -bench=. -benchmem
+
+gen:
+	@cd demo/gen_data && go run gen_data.go

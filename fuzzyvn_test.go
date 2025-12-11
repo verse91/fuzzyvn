@@ -2,28 +2,37 @@ package fuzzyvn
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
-const TestData100kPath = "./demo/test_data/test_paths_100k.txt"
+// Thay đổi: Trỏ vào thư mục thay vì file .txt
+const TestDataDir = "./demo/test_data"
 
-func loadTestFiles(path string) ([]string, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	files := strings.Split(string(content), "\n")
-	var result []string
-	for _, file := range files {
-		if file != "" {
-			result = append(result, file)
+// Hàm mới: Quét toàn bộ thư mục và con của nó để lấy đường dẫn file
+func scanDir(root string) ([]string, error) {
+	var files []string
+
+	// Sử dụng WalkDir nhanh hơn Walk thường và tối ưu hơn tự viết đệ quy
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-	}
-	return result, nil
+		// Chỉ lấy file, bỏ qua thư mục
+		if !d.IsDir() {
+			// Lấy đường dẫn tuyệt đối hoặc tương đối tùy nhu cầu
+			// Ở đây giữ nguyên path do WalkDir trả về
+			files = append(files, path)
+		}
+		return nil
+	})
+
+	return files, err
 }
 
 func TestNormalize(t *testing.T) {
@@ -514,15 +523,20 @@ func TestSearchCacheBoost(t *testing.T) {
 }
 
 func TestSearchWithRealworldData(t *testing.T) {
-	t.Run("với test_data music", func(t *testing.T) {
-		testDataPath := "demo/test_data/Music_Lossless"
-		if _, err := os.Stat(testDataPath); os.IsNotExist(err) {
-			t.Skip("Bỏ qua: không có test_data")
+	t.Run("với test_data từ folder", func(t *testing.T) {
+		// Kiểm tra folder tồn tại không
+		if _, err := os.Stat(TestDataDir); os.IsNotExist(err) {
+			t.Skipf("Bỏ qua: không có thư mục %s", TestDataDir)
 		}
 
-		files := scanTestData(testDataPath)
+		// Load file thật từ thư mục
+		files, err := scanDir(TestDataDir)
+		if err != nil {
+			t.Fatalf("Lỗi scanDir: %v", err)
+		}
+
 		if len(files) == 0 {
-			t.Skip("Bỏ qua: không có files trong test_data")
+			t.Skip("Bỏ qua: không có files trong folder test_data")
 		}
 
 		searcher := NewSearcher(files)
@@ -551,13 +565,30 @@ func TestSearchWithRealworldData(t *testing.T) {
 	})
 }
 
+// -----------------------------------------------------------------------------
+// BENCHMARK ĐƯỢC VIẾT LẠI DƯỚI ĐÂY
+// -----------------------------------------------------------------------------
+
 func BenchmarkSearch_RealWorld(b *testing.B) {
-	allFiles, err := loadTestFiles(TestData100kPath)
+	// 1. Load tất cả file từ folder thật thay vì file txt
+	allFiles, err := scanDir(TestDataDir)
 	if err != nil {
-		b.Skipf("Lỗi khi tải file %s. Vui lòng đảm bảo file tồn tại: %v", TestData100kPath, err)
+		b.Skipf("Lỗi khi scan thư mục %s. Vui lòng chạy gen_data.go trước: %v", TestDataDir, err)
 	}
 
-	files50k := allFiles[:50000]
+	if len(allFiles) == 0 {
+		b.Skipf("Thư mục %s rỗng", TestDataDir)
+	}
+
+	fmt.Printf("\n--- Benchmark Info ---\nĐã load %d files từ ổ cứng\n----------------------\n", len(allFiles))
+
+	// Chuẩn bị tập dữ liệu 50k (nếu đủ file)
+	var files50k []string
+	if len(allFiles) >= 50000 {
+		files50k = allFiles[:50000]
+	} else {
+		files50k = allFiles
+	}
 
 	b.Run("Search/50k_Files", func(b *testing.B) {
 		searcher := NewSearcher(files50k)
@@ -577,7 +608,7 @@ func BenchmarkSearch_RealWorld(b *testing.B) {
 		}
 	})
 
-	b.Run("Search/100k_Files_Typo", func(b *testing.B) {
+	b.Run("Search/100K_Files_Typo", func(b *testing.B) {
 		searcher := NewSearcher(allFiles)
 
 		b.ResetTimer()
@@ -748,24 +779,6 @@ func generateVietnameseTestFiles(n int) []string {
 		name := names[i%len(names)]
 		ext := exts[i%len(exts)]
 		files[i] = fmt.Sprintf("/documents/%s_%d%s", name, i, ext)
-	}
-	return files
-}
-
-func scanTestData(root string) []string {
-	var files []string
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return files
-	}
-
-	for _, entry := range entries {
-		path := root + "/" + entry.Name()
-		if entry.IsDir() {
-			files = append(files, scanTestData(path)...)
-		} else {
-			files = append(files, path)
-		}
 	}
 	return files
 }
