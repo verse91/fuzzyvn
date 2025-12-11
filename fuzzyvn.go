@@ -1,7 +1,6 @@
 /*
 ----------------
 Author: verse91
-Date: 2025-12-10
 Version: v0.1.6
 License: 0BSD
 ----------------
@@ -41,6 +40,7 @@ fuzzyvn.go Structure:
 │   ├── Size
 │   └── Clear
 └── Searcher Methods
+
 	├── NewSearcher
 	├── NewSearcherWithCache
 	├── Search
