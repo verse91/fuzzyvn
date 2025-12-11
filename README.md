@@ -10,9 +10,6 @@
 </div>
 <p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy search được tối ưu cho tiếng Việt. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
 
-> [!NOTE]
-> ***9ms, 0.5MB RAM, ~200 allocs cho 100k file***
-
 > [!IMPORTANT]
 > Package này chỉ nên dùng ở local hoặc side project.  
 > Vui lòng không được sử dụng trong production.  
@@ -52,7 +49,8 @@ go get github.com/verse91/fuzzyvn
 
 ## Benchmark
 > [!NOTE]
-> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)
+> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)  
+> ***9ms, 0.5MB RAM, ~200 allocs cho 100k file***
 
 ```bash
 Search 'son tung' trong 99987 files... tìm thấy 20 kết quả trong 12.778477ms
