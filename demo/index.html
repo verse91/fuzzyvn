@@ -30,32 +30,32 @@
 <body>
     <h1>Go Fuzzy Finder</h1>
     <input type="text" id="search" placeholder="Type to search files..." autofocus oninput="doSearch()">
-    
+
     <div class="recent-section" id="recentSection" style="display: none;">
         <div class="recent-title">Recent searches:</div>
         <div class="recent-tags" id="recentTags"></div>
     </div>
-    
+
     <div id="recentFilesSection" style="display: none;">
         <div class="section-header">Recent results</div>
         <ul id="recentFilesList"></ul>
     </div>
-    
+
     <div id="cachedSection" style="display: none;">
         <div class="section-header">From cache</div>
         <ul id="cachedResults"></ul>
     </div>
-    
+
     <div id="normalSection" style="display: none;">
         <div class="section-header normal">Search results</div>
         <ul id="results"></ul>
     </div>
-    
+
     <div class="status-bar">
         <span>Cache: <span id="cacheSize">0</span> queries</span>
         <span>Click to cache</span>
     </div>
-    
+
     <div class="toast" id="toast"></div>
 
     <script>
@@ -67,7 +67,7 @@
             timeout = setTimeout(() => {
                 const query = document.getElementById('search').value;
                 lastQuery = query;
-                
+
                 if (query.length > 0) {
                     document.getElementById('recentSection').style.display = 'none';
                     document.getElementById('recentFilesSection').style.display = 'none';
@@ -78,47 +78,47 @@
                     document.getElementById('normalSection').style.display = 'none';
                     return;
                 }
-                
+
                 fetch('/search?q=' + encodeURIComponent(query))
                     .then(res => res.json())
                     .then(data => {
                         const cachedSection = document.getElementById('cachedSection');
                         const cachedList = document.getElementById('cachedResults');
-                        
+
                         if (data.cached_files && data.cached_files.length > 0) {
                             cachedSection.style.display = 'block';
                             cachedList.innerHTML = '';
-                            
+
                             data.cached_files.forEach(filePath => {
                                 const li = document.createElement('li');
                                 li.className = 'cached-item';
                                 li.textContent = filePath;
                                 li.dataset.path = filePath;
-                                
+
                                 const badge = document.createElement('span');
                                 badge.className = 'boost-badge';
                                 badge.textContent = 'cached';
                                 li.appendChild(badge);
-                                
+
                                 li.onclick = () => recordSelection(query, filePath, li);
                                 cachedList.appendChild(li);
                             });
                         } else {
                             cachedSection.style.display = 'none';
                         }
-                        
+
                         const normalSection = document.getElementById('normalSection');
                         const list = document.getElementById('results');
-                        
+
                         if (data.results && data.results.length > 0) {
                             normalSection.style.display = 'block';
                             list.innerHTML = '';
-                            
+
                             data.results.forEach(item => {
                                 const li = document.createElement('li');
                                 li.textContent = item.path;
                                 li.dataset.path = item.path;
-                                
+
                                 if (item.boosted) {
                                     li.classList.add('boosted');
                                     const badge = document.createElement('span');
@@ -126,7 +126,7 @@
                                     badge.textContent = 'cached';
                                     li.appendChild(badge);
                                 }
-                                
+
                                 li.onclick = () => recordSelection(query, item.path, li);
                                 list.appendChild(li);
                             });
@@ -134,7 +134,7 @@
                             normalSection.style.display = 'none';
                         }
                     });
-            }, 100);
+            }, 50);
         }
 
         function recordSelection(query, filePath, element) {
@@ -145,7 +145,7 @@
             }).then(() => {
                 element.classList.add('just-cached');
                 setTimeout(() => element.classList.remove('just-cached'), 500);
-                
+
                 if (!element.querySelector('.boost-badge')) {
                     element.classList.add('boosted');
                     const badge = document.createElement('span');
@@ -153,7 +153,7 @@
                     badge.textContent = 'cached';
                     element.appendChild(badge);
                 }
-                
+
                 showToast('Cached: ' + filePath.split('/').pop());
                 updateCacheInfo();
             });
@@ -173,7 +173,7 @@
                     document.getElementById('cacheSize').textContent = data.size;
                     window.recentQueries = data.recent_queries || [];
                     window.recentFiles = data.recent_files || [];
-                    
+
                     if (document.getElementById('search').value === '') {
                         loadRecentSearches();
                         loadRecentFiles();
@@ -184,15 +184,15 @@
         function loadRecentSearches() {
             const section = document.getElementById('recentSection');
             const container = document.getElementById('recentTags');
-            
+
             if (!window.recentQueries || window.recentQueries.length === 0) {
                 section.style.display = 'none';
                 return;
             }
-            
+
             section.style.display = 'block';
             container.innerHTML = '';
-            
+
             window.recentQueries.forEach(query => {
                 const tag = document.createElement('span');
                 tag.className = 'recent-tag';
@@ -208,26 +208,26 @@
         function loadRecentFiles() {
             const section = document.getElementById('recentFilesSection');
             const list = document.getElementById('recentFilesList');
-            
+
             if (!window.recentFiles || window.recentFiles.length === 0) {
                 section.style.display = 'none';
                 return;
             }
-            
+
             section.style.display = 'block';
             list.innerHTML = '';
-            
+
             window.recentFiles.forEach(filePath => {
                 const li = document.createElement('li');
                 li.className = 'cached-item';
                 li.textContent = filePath;
                 li.dataset.path = filePath;
-                
+
                 const badge = document.createElement('span');
                 badge.className = 'boost-badge';
                 badge.textContent = 'cached';
                 li.appendChild(badge);
-                
+
                 li.onclick = () => {
                     showToast(filePath.split('/').pop());
                 };
