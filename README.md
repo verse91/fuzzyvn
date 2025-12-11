@@ -11,22 +11,17 @@
 <p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy search được tối ưu cho tiếng Việt, và còn nhanh hơn với tiếng Anh. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
 
 > [!IMPORTANT]
-> Package này chỉ nên dùng ở local hoặc side project.
-> Vui lòng không được sử dụng trong production.
+> Package này chỉ nên dùng ở local hoặc side project.  
+> Vui lòng không được sử dụng trong production.  
 > Mình sẽ không chịu bất kỳ trách nhiệm nào khi bạn sử dụng nó.
 
 <br>
 
 <div align="center">
-
-<img width="70%" width="1414" height="1425" alt="image" src="https://github.com/user-attachments/assets/9266cc9a-1b06-491f-ab17-2f0cbd9dcabb" />
-
-<img width="70%" width="1379" height="1406" alt="image" src="https://github.com/user-attachments/assets/d874a0a8-8642-4d3b-a35c-2c44bb0d9647" />
-
-<img width="70%" width="1320" height="630" alt="image" src="https://github.com/user-attachments/assets/c26711db-c3cd-4d44-b03a-3915b05a03ee" />
+ <img width="1320" height="630" alt="image" src="https://github.com/user-attachments/assets/c26711db-c3cd-4d44-b03a-3915b05a03ee" />
 </div>
 
-<div align="center"><i>Bạn có thể test qua phần demo</i></div>
+<div align="center"><i>Bạn có thể test qua phần <a href="https://github.com/verse91/fuzzyvn/tree/main/demo">demo</a></i></div>
 
 ## Tính năng
 
@@ -34,7 +29,6 @@
 - **Xử lí lỗi chính tả**
 - **Đa thuật toán**
 - **Hệ thống cache**
-- **Xử lí lỗi gõ**
 - **Thread-Safe**
 - **Xử lý parallel cho dataset lớn**
 
@@ -50,8 +44,8 @@ go get github.com/verse91/fuzzyvn
 
 ## Benchmark
 > [!NOTE]
-> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)
-> ***9ms, 0.5MB RAM, ~200 allocs cho 100k file***
+> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)  
+> ***9ms, 0.5MB RAM, ~200 allocs cho 100k files***
 
 ```bash
 Search 'son tung' trong 99987 files... tìm thấy 20 kết quả trong 12.778477ms
@@ -182,35 +176,97 @@ go test -bench=BenchmarkLevenshteinRatio -benchmem -count=1
 ```
 ## Cách dùng
 
-### Ví dụ cơ bản
+<details open>
+  <summary><b>Ví dụ cơ bản</b></summary>
+<br>
 
 ```go
+//go:build ignore
+
 package main
 
 import (
-    "fmt"
-    "github.com/verse91/fuzzyvn"
+	"fmt"
+
+	"github.com/verse91/fuzzyvn"
 )
 
 func main() {
-    // Tạo searcher với danh sách file
-    files := []string{
-        "/home/user/Documents/Báo_cáo_tháng_1.pdf",
-        "/home/user/Music/Sơn_Tùng_MTP.mp3",
-        "/home/user/Code/main.go",
-    }
-    searcher := fuzzyvn.NewSearcher(files)
+	// 1. TẠO SEARCHER
+	// Bạn hoàn toàn có thể đọc từ 1 folder, đây chỉ là ví dụ đơn giản
+	files := []string{
+		"/home/user/Documents/Báo_cáo_tháng_1.pdf",
+		"/home/user/Documents/Hợp_đồng_thuê_nhà.docx",
+		"/home/user/Music/Sơn_Tùng_MTP.mp3",
+		"/home/user/Code/main.go",
+		"/home/user/Code/utils.go",
+	}
 
-    // Tìm kiếm
-    results := searcher.Search("bao cao")
-    for _, path := range results {
-        fmt.Println(path)
-    }
-    // Output: /home/user/Documents/Báo_cáo_tháng_1.pdf
+	searcher := fuzzyvn.NewSearcher(files)
+
+	// 2. TÌM KIẾM CƠ BẢN
+	fmt.Println("--- Tìm 'bao cao' ---")
+	results := searcher.Search("bao cao")
+	for _, path := range results {
+		fmt.Println("  →", path)
+	}
+	// Output: /home/user/Documents/Báo_cáo_tháng_1.pdf
+
+	// 3. TÌM KIẾM KHÔNG DẤU
+	fmt.Println("\n--- Tìm 'son tung' (không dấu) ---")
+	results = searcher.Search("son tung")
+	for _, path := range results {
+		fmt.Println("  →", path)
+	}
+	// Output: /home/user/Music/Sơn_Tùng_MTP.mp3
+
+	// 4. SỬA LỖI CHÍNH TẢ (Levenshtein)
+	fmt.Println("\n--- Tìm 'maiin' (gõ sai) ---")
+	results = searcher.Search("maiin")
+	for _, path := range results {
+		fmt.Println("  →", path)
+	}
+	// Output: /home/user/Code/main.go
+
+	// 5. CACHE SYSTEM - Học hành vi người dùng
+	fmt.Println("\n--- Cache Demo ---")
+
+	// User tìm "main" và chọn main.go
+	searcher.RecordSelection("main", "/home/user/Code/main.go")
+
+	// Chọn thêm 2 lần nữa
+	searcher.RecordSelection("main", "/home/user/Code/main.go")
+	searcher.RecordSelection("main", "/home/user/Code/main.go")
+
+	// Giờ tìm với từ tương tự → main.go được boost lên top
+	fmt.Println("Tìm 'mai' (sau khi đã cache):")
+	results = searcher.Search("mai")
+	for _, path := range results {
+		fmt.Println("  →", path)
+	}
+	// main.go sẽ lên đầu vì đã được chọn 3 lần
+
+	// 6. XEM THỐNG KÊ CACHE
+	cache := searcher.GetCache()
+
+	fmt.Println("\n--- Thống kê ---")
+	fmt.Println("Recent queries:", cache.GetRecentQueries(3))
+	fmt.Println("Recent files:", cache.GetAllRecentFiles(3))
+	fmt.Printf("Tổng queries: %d\n", cache.Size())
+
+	// 7. TÙY CHỈNH CACHE
+	cache.SetBoostScore(10000) // Tăng độ ưu tiên cho cache
+	cache.SetMaxQueries(200)   // Lưu nhiều queries hơn
+
+	fmt.Println("\n✓ Đã cấu hình cache!")
 }
 ```
+</details>
 
-### Ví dụ với Cache
+<details>
+  <summary><b>Ví dụ với Cache</b></summary>
+<br>
+
 
 ```go
 // Người dùng tìm kiếm
@@ -223,58 +279,14 @@ searcher.RecordSelection("main", selectedFile)
 // Lần tìm kiếm sau, file này được ưu tiên
 results = searcher.Search("mai")  // Gõ sai, vẫn lên đầu nhờ cache
 ```
+</details>
 
-### Ví dụ với HTTP Server
+<details>
+  <summary><b>Ví dụ với HTTP Server</b></summary>
+<br>
 
-```go
-package main
-
-import (
-    "encoding/json"
-    "net/http"
-    "sync"
-    "github.com/verse91/fuzzyvn"
-)
-
-var (
-    searcher *fuzzyvn.Searcher
-    mu       sync.RWMutex
-)
-
-func searchHandler(w http.ResponseWriter, r *http.Request) {
-    query := r.URL.Query().Get("q")
-
-    mu.RLock()
-    results := searcher.Search(query)
-    mu.RUnlock()
-
-    json.NewEncoder(w).Encode(results)
-}
-
-func selectHandler(w http.ResponseWriter, r *http.Request) {
-    var req struct {
-        Query string `json:"query"`
-        Path  string `json:"path"`
-    }
-    json.NewDecoder(r.Body).Decode(&req)
-
-    mu.Lock()
-    searcher.RecordSelection(req.Query, req.Path)
-    mu.Unlock()
-
-    w.WriteHeader(http.StatusOK)
-}
-
-func main() {
-    // Scan và index files
-    files := scanDirectory("/data")
-    searcher = fuzzyvn.NewSearcher(files)
-
-    http.HandleFunc("/api/search", searchHandler)
-    http.HandleFunc("/api/select", selectHandler)
-    http.ListenAndServe(":8080", nil)
-}
-```
+Xem ví dụ ở [demo](https://github.com/verse91/fuzzyvn/tree/main/demo)
+</details>
 
 ## Tài liệu
 
@@ -346,17 +358,17 @@ matches := fuzzyvn.FuzzyFind("pattern", targets)
 ## Cách hoạt động
 
 ### Điểm số (Scoring)
+<div align="center">
+ <img width="70%" width="1414" height="1425" alt="image" src="https://github.com/user-attachments/assets/9266cc9a-1b06-491f-ab17-2f0cbd9dcabb" />
+</div>
 
 Mỗi kết quả nhận điểm từ nhiều nguồn:
 
 1. **Fuzzy Score** (0-1000+)
-   - Match ký tự: +16 mỗi ký tự
-   - Ký tự đầu tiên: +24
-   - Match liên tiếp: +28
-   - Sau word boundary: +20
-   - Sau slash: +24
-   - CamelCase: +16
-   - Gap penalty: -2 mỗi ký tự
+   - Đầu từ (word start): +80
+   - Match liên tiếp (consecutive): +40
+   - Match thường: +10
+   - Phạt độ dài: -(lenT - lenP)
 
 2. **Word Bonus** (0-9000+)
    - +3000 cho mỗi từ khớp hoàn toàn
@@ -372,7 +384,9 @@ Mỗi kết quả nhận điểm từ nhiều nguồn:
    - Công thức: `(boostScore × similarity × selectCount) / 100`
 
 ### Cache System
-
+<div align="center">
+ <img width="70%" width="1379" height="1406" alt="image" src="https://github.com/user-attachments/assets/d874a0a8-8642-4d3b-a35c-2c44bb0d9647" />
+</div>
 Cache hoạt động theo cơ chế LRU (Least Recently Used):
 
 ```go
@@ -388,19 +402,25 @@ Cache hoạt động theo cơ chế LRU (Least Recently Used):
 
 ## Các trường hợp sử dụng
 
-### 1. File Explorer / Launcher
+<details>
+  <summary><b>1. File Explorer / Launcher</b></summary>
+<br>
 
 ```go
 // Quét thư mục home
 files := scanDirectory("/home/user")
 searcher := fuzzyvn.NewSearcher(files)
 
-// User gõ, realtime search
+// User gõ, realtime searchautomatically
 results := searcher.Search(userInput)
 ```
 
-### 2. Document Management
+</details>
 
+<details>
+  <summary><b>2. Document Management</b></summary>
+<br>
+ 
 ```go
 // Index tài liệu công ty
 docs := scanWithExtensions("/company/docs", []string{".pdf", ".docx"})
@@ -410,8 +430,12 @@ searcher := fuzzyvn.NewSearcher(docs)
 contracts := searcher.Search("hop dong")
 ```
 
-### 3. Code Search
+</details>
 
+<details>
+  <summary><b>3. Code Search</b></summary>
+<br>
+ 
 ```go
 // Index source code
 code := scanIgnoreDirs("/project", []string{"node_modules", ".git"})
@@ -421,8 +445,13 @@ searcher := fuzzyvn.NewSearcher(code)
 mains := searcher.Search("main")
 ```
 
-### 4. Media Library
+</details>
 
+
+<details>
+  <summary><b>4. Media Library</b></summary>
+<br>
+ 
 ```go
 // Index nhạc
 music := scanWithExtensions("/music", []string{".mp3", ".flac"})
@@ -432,10 +461,14 @@ searcher := fuzzyvn.NewSearcher(music)
 songs := searcher.Search("son tung")
 ```
 
+</details>
+
 ## Ví dụ nâng cao
 
-### Rebuild Index khi file thay đổi
-
+<details>
+  <summary><b>Rebuild Index khi file thay đổi</b></summary>
+<br>
+ 
 ```go
 func watchAndRebuild(searcher **fuzzyvn.Searcher) {
     watcher := setupFileWatcher()
@@ -453,8 +486,12 @@ func watchAndRebuild(searcher **fuzzyvn.Searcher) {
 }
 ```
 
-### Tùy chỉnh cho domain cụ thể
+</details>
 
+<details>
+  <summary><b>Tùy chỉnh cho domain cụ thể</b></summary>
+<br>
+ 
 ```go
 searcher := fuzzyvn.NewSearcher(files)
 cache := searcher.GetCache()
@@ -466,8 +503,12 @@ cache.SetBoostScore(15000)
 cache.SetMaxQueries(1000)
 ```
 
-### Integration với CLI tool
+</details>
 
+<details>
+  <summary><b>Integration với CLI tool</b></summary>
+<br>
+ 
 ```go
 func main() {
     files := scanDirectory(os.Getenv("HOME"))
@@ -496,10 +537,12 @@ func main() {
 }
 ```
 
+</details>
+
 ## Đóng góp
 
 Vui lòng theo chuẩn [Contributing](.github/CONTRIBUTING.md) khi tạo một contribution qua pull request.
 
-## License
+## Giấy phép
 
 Package này được cấp phép bởi giấy phép [0BSD License](LICENSE). Bạn có thể sửa, xóa, thêm hay làm bất cứ thứ gì bạn muốn với nó.
