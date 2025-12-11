@@ -159,8 +159,8 @@ make gen
 make demo
 ```
 Kết quả:
-> Server running at http://localhost:8080
-> Scanning files from directory: ./test_data
+> Server running at http://localhost:8080  
+> Scanning files from directory: ./test_data  
 > Indexed 99987 files. Cache: 0 queries
 
 ### Test
