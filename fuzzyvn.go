@@ -232,7 +232,6 @@ NOTE: 1 điều lưu ý là ta không cần quan tâm chữ hoa, chữ thường
 
 func LevenshteinRatio(s1, s2 string) int {
 	/*
-		4 dòng dưới
 		Đây là trường hợp biến chuỗi s1 thành "chuỗi rỗng"
 		Ví dụ s1 = "ABC", s2 = ""
 		Biến "" thành "" mất 0 bước (column[0] = 0)
