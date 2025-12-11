@@ -175,7 +175,7 @@ func countWordMatches(queryWords []string, target string) int {
 func Normalize(s string) string {
 	// Tách dấu -> xóa dấu -> ghép lại
 	// https://gist.github.com/hmit208/eb319c7497fac01e0d2d5ada9d65511b
-	// Dòng này nhằm đảm NFD sẽ chuyển thành NFC để được xử lí (có thể xảy ra lỗi trên MACOS do nó dùng NFD)
+	// Dòng này nhằm đảm bảo NFD sẽ chuyển thành NFC để được xử lí (có thể xảy ra lỗi trên MACOS do nó dùng NFD)
 	s = norm.NFC.String(s)
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	output, _, _ := transform.String(t, s)
