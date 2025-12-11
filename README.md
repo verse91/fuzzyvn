@@ -149,6 +149,36 @@ make bench
 └─────────────────────────────────────────┘
 ```
 
+## Nếu bạn muốn tự phát triển
+
+### Nhớ tạo data từ demo trước khi chạy (mình không up lên đây vì lí do dung lương)
+```bash
+make gen
+```
+> [!WARNING]
+> Phải tạo data trước khi chạy nếu không sẽ lỗi
+### Chạy demo
+```bash
+make demo
+```
+Kết quả:
+> Server running at http://localhost:8080  
+> Scanning files from directory: ./test_data  
+> Indexed 99987 files. Cache: 0 queries
+
+### Test
+```bash
+make test
+```
+### Benchmark
+```go
+make bench
+```
+hoặc benchmark cụ thể
+
+```go
+go test -bench=BenchmarkLevenshteinRatio -benchmem -count=1
+```
 ## Cách dùng
 
 ### Ví dụ cơ bản
