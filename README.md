@@ -11,8 +11,8 @@
 <p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy search được tối ưu cho tiếng Việt, và còn nhanh hơn với tiếng Anh. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
 
 > [!IMPORTANT]
-> Package này chỉ nên dùng ở local hoặc side project.  
-> Vui lòng không được sử dụng trong production.  
+> Package này chỉ nên dùng ở local hoặc side project.
+> Vui lòng không được sử dụng trong production.
 > Mình sẽ không chịu bất kỳ trách nhiệm nào khi bạn sử dụng nó.
 
 <br>
@@ -31,6 +31,7 @@
 ## Tính năng
 
 - **Tối ưu cho tiếng Việt**
+- **Xử lí lỗi chính tả**
 - **Đa thuật toán**
 - **Hệ thống cache**
 - **Xử lí lỗi gõ**
@@ -49,7 +50,7 @@ go get github.com/verse91/fuzzyvn
 
 ## Benchmark
 > [!NOTE]
-> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)  
+> Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)
 > ***9ms, 0.5MB RAM, ~200 allocs cho 100k file***
 
 ```bash
@@ -162,8 +163,8 @@ make gen
 make demo
 ```
 Kết quả:
-> Server running at http://localhost:8080  
-> Scanning files from directory: ./test_data  
+> Server running at http://localhost:8080
+> Scanning files from directory: ./test_data
 > Indexed 99987 files. Cache: 0 queries
 
 ### Test
@@ -242,11 +243,11 @@ var (
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
     query := r.URL.Query().Get("q")
-    
+
     mu.RLock()
     results := searcher.Search(query)
     mu.RUnlock()
-    
+
     json.NewEncoder(w).Encode(results)
 }
 
@@ -256,11 +257,11 @@ func selectHandler(w http.ResponseWriter, r *http.Request) {
         Path  string `json:"path"`
     }
     json.NewDecoder(r.Body).Decode(&req)
-    
+
     mu.Lock()
     searcher.RecordSelection(req.Query, req.Path)
     mu.Unlock()
-    
+
     w.WriteHeader(http.StatusOK)
 }
 
@@ -268,7 +269,7 @@ func main() {
     // Scan và index files
     files := scanDirectory("/data")
     searcher = fuzzyvn.NewSearcher(files)
-    
+
     http.HandleFunc("/api/search", searchHandler)
     http.HandleFunc("/api/select", selectHandler)
     http.ListenAndServe(":8080", nil)
@@ -438,14 +439,14 @@ songs := searcher.Search("son tung")
 ```go
 func watchAndRebuild(searcher **fuzzyvn.Searcher) {
     watcher := setupFileWatcher()
-    
+
     for event := range watcher.Events {
         // Giữ lại cache
         cache := (*searcher).GetCache()
-        
+
         // Quét lại
         newFiles := scanDirectory("/data")
-        
+
         // Rebuild với cache cũ
         *searcher = fuzzyvn.NewSearcherWithCache(newFiles, cache)
     }
@@ -471,22 +472,22 @@ cache.SetMaxQueries(1000)
 func main() {
     files := scanDirectory(os.Getenv("HOME"))
     searcher := fuzzyvn.NewSearcher(files)
-    
+
     reader := bufio.NewReader(os.Stdin)
     for {
         fmt.Print("Search> ")
         query, _ := reader.ReadString('\n')
         query = strings.TrimSpace(query)
-        
+
         results := searcher.Search(query)
         for i, r := range results {
             fmt.Printf("[%d] %s\n", i, r)
         }
-        
+
         fmt.Print("Select> ")
         input, _ := reader.ReadString('\n')
         idx, _ := strconv.Atoi(strings.TrimSpace(input))
-        
+
         if idx >= 0 && idx < len(results) {
             searcher.RecordSelection(query, results[idx])
             // Open file...

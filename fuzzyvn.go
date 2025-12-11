@@ -16,13 +16,9 @@ fuzzyvn.go Structure:
 │   └── Scoring constants
 ├── Utility Functions
 │   ├── abs
-
-	├── isSeparator
-
+│	├── isSeparator
 │   ├── countWordMatches
-
-	├──fastSubstring
-
+│	├── fastSubstring
 │   ├── Normalize
 │   ├── LevenshteinRatio
 │   └── isWordBoundary
@@ -45,7 +41,6 @@ fuzzyvn.go Structure:
 │   ├── Size
 │   └── Clear
 └── Searcher Methods
-
 	├── NewSearcher
 	├── NewSearcherWithCache
 	├── Search
