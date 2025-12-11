@@ -11,6 +11,8 @@
 <p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy matching được tối ưu cho tiếng Việt, và còn nhanh hơn với tiếng Anh. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
 
 > [!IMPORTANT]
+> Fuzzyvn vẫn hỗ trợ rất tốt cho tiếng Anh.  
+> FuzzyVN hỗ trợ tốt nhất cho tìm kiếm file theo file path thay vì chỉ mỗi tên file (Single String), có thể sẽ dùng thừa tài nguyên cũng như điểm số có thể sai lệch một chút (sẽ không ảnh hưởng nhiều).  
 > Package này chỉ nên dùng ở local hoặc side project.  
 > Vui lòng không được sử dụng trong production.  
 > Mình sẽ không chịu bất kỳ trách nhiệm nào khi bạn sử dụng nó.
