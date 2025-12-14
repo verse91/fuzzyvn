@@ -40,11 +40,11 @@ func TestNormalize(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"Đường", "Duong"},
+		{"Đường", "duong"},
 		{"đường", "duong"},
-		{"Nguyễn", "Nguyen"},
+		{"Nguyễn", "nguyen"},
 		{"nguyễn", "nguyen"},
-		{"Huệ", "Hue"},
+		{"Huệ", "hue"},
 		{"café", "cafe"},
 		{"kỷ niệm", "ky niem"},
 		{"kỉ niệm", "ki niem"},
@@ -52,11 +52,11 @@ func TestNormalize(t *testing.T) {
 		{"lí do", "li do"},
 		{"quy định", "quy dinh"},
 		{"qui định", "qui dinh"},
-		{"Sơn Tùng", "Son Tung"},
-		{"Báo cáo tháng 1", "Bao cao thang 1"},
-		{"Hello World", "Hello World"},
+		{"Sơn Tùng", "son tung"},
+		{"Báo cáo tháng 1", "bao cao thang 1"},
+		{"Hello World", "hello world"},
 		{"vật lý", "vat ly"},
-		{"Python", "Python"},
+		{"Python", "python"},
 		{"", ""},
 	}
 

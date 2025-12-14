@@ -58,12 +58,11 @@ import (
 	"sync"
 	"unicode"
 
-	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
 // =============================================================================
+
 // Struct
 // =============================================================================
 
@@ -180,16 +179,60 @@ func countWordMatches(queryWords []string, target string) int {
 }
 
 func Normalize(s string) string {
-	// Tách dấu -> xóa dấu -> ghép lại
-	// https://gist.github.com/hmit208/eb319c7497fac01e0d2d5ada9d65511b
-	// Dòng này nhằm đảm bảo NFD sẽ chuyển thành NFC để được xử lí (có thể xảy ra lỗi trên MACOS do nó dùng NFD)
-	s = norm.NFC.String(s)
-	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-	output, _, _ := transform.String(t, s)
-	// Chỉ xử lý đ->d, KHÔNG đổi y->i vì sẽ làm sai lệch kết quả
-	output = strings.ReplaceAll(output, "đ", "d")
-	output = strings.ReplaceAll(output, "Đ", "D")
-	return output
+	// 1. FAST PATH: Nếu toàn là ASCII (Tiếng Anh, Code) -> Lowercase và trả về ngay
+	// Đây là trường hợp phổ biến nhất (90% file source code) -> Tốc độ siêu nhanh
+	isASCII := true
+	for i := 0; i < len(s); i++ {
+		if s[i] > 127 {
+			isASCII = false
+			break
+		}
+	}
+	if isASCII {
+		return strings.ToLower(s)
+	}
+
+	// 2. NFD CHECK: Chỉ convert về NFC nếu chuỗi đang ở dạng NFD (thường gặp trên macOS)
+	// Hàm IsNormalString rất nhanh, giúp tránh việc allocate lại chuỗi nếu không cần thiết
+	if !norm.NFC.IsNormalString(s) {
+		s = norm.NFC.String(s)
+	}
+
+	// 3. BUILDER: Dùng Builder để nối chuỗi hiệu quả
+	var b strings.Builder
+	// Grow đúng kích thước để tránh alloc nhiều lần.
+	// Chuỗi không dấu thường ngắn hơn hoặc bằng chuỗi có dấu.
+	b.Grow(len(s))
+
+	// 4. MANUAL MAPPING: Duyệt từng rune và map thủ công
+	// Lưu ý: Không dùng range strings.ToLower(s) để tránh tạo string tạm
+	for _, r := range s {
+		// Lowercase từng ký tự
+		r = unicode.ToLower(r)
+
+		switch r {
+		case 'á', 'à', 'ả', 'ã', 'ạ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ':
+			b.WriteRune('a')
+		case 'đ':
+			b.WriteRune('d')
+		case 'é', 'è', 'ẻ', 'ẽ', 'ẹ', 'ê', 'ế', 'ề', 'ể', 'ễ', 'ệ':
+			b.WriteRune('e')
+		case 'í', 'ì', 'ỉ', 'ĩ', 'ị':
+			b.WriteRune('i')
+		case 'ó', 'ò', 'ỏ', 'õ', 'ọ', 'ô', 'ố', 'ồ', 'ổ', 'ỗ', 'ộ', 'ơ', 'ớ', 'ờ', 'ở', 'ỡ', 'ợ':
+			b.WriteRune('o')
+		case 'ú', 'ù', 'ủ', 'ũ', 'ụ', 'ư', 'ứ', 'ừ', 'ử', 'ữ', 'ự':
+			b.WriteRune('u')
+		case 'ý', 'ỳ', 'ỷ', 'ỹ', 'ỵ':
+			b.WriteRune('y')
+		default:
+			// Giữ lại các ký tự ASCII (a-z, 0-9, symbol) và các ký tự Unicode khác không phải tiếng Việt
+			if r < 128 || unicode.IsLetter(r) || unicode.IsDigit(r) {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return b.String()
 }
 
 func fastSubstring(s string, n int) string {
@@ -496,7 +539,7 @@ FuzzyFind: Tìm tất cả targets khớp với pattern
 - Xong sort theo score giảm dần
 */
 func FuzzyFind(pattern string, targets []string) []FuzzyMatch {
-	patternRunes := []rune(strings.ToLower(Normalize(pattern))) // 1 alloc
+	patternRunes := []rune(Normalize(pattern)) // 1 alloc
 	if len(patternRunes) == 0 {
 		return nil
 	}
@@ -820,7 +863,7 @@ func (c *QueryCache) RecordSelection(query, filePath string) {
 	defer c.mu.Unlock()
 	// Chuẩn hóa query, xóa hết dấu, xóa hết các ký tự viết hoa
 	// Ví dụ: Cộng đồng Golang Việt Nam -> cong dong golang viet nam
-	queryNorm := strings.ToLower(Normalize(query))
+	queryNorm := Normalize(query)
 
 	// Phải ưu tiên kiểm tra trong cache trước rồi mới tới các bước tiếp theo
 	entries, exists := c.entries[queryNorm]
@@ -881,7 +924,7 @@ func (c *QueryCache) GetBoostScores(query string) map[string]int {
 		return result
 	}
 
-	queryNorm := strings.ToLower(Normalize(query))
+	queryNorm := Normalize(query)
 	/*
 		Kết quả nào càng giống ý định tìm kiếm VÀ càng được chọn nhiều trước đây, thì điểm cộng càng cao
 		Dựa vào config boost cơ bản của bạn
@@ -1108,8 +1151,8 @@ func NewSearcher(items []string) *Searcher {
 		filename := filepath.Base(item)
 		// Ưu tiên tên file, theo path thì điểm thấp hơn
 		priorityString := filename + " " + item
-		normPaths[i] = strings.ToLower(Normalize(priorityString))
-		normNames[i] = strings.ToLower(Normalize(filename))
+		normPaths[i] = Normalize(priorityString)
+		normNames[i] = Normalize(filename)
 
 		// Map trong cache để sau này server tìm trong các file gốc nhanh hơn
 		pathMap[item] = i
@@ -1150,7 +1193,7 @@ fmt.Println(len(runes))  // 8 (đúng 8 ký tự)
 - Ta cần đếm số ký tự, chứ không tính theo byte được
 */
 func (s *Searcher) Search(query string) []string {
-	queryNorm := strings.ToLower(Normalize(query))
+	queryNorm := Normalize(query)
 	// đếm số ký tự, không phải byte
 	queryLen := 0
 	for range queryNorm {
