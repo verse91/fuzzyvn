@@ -1248,7 +1248,6 @@ func (s *Searcher) Search(query string) []string {
 		if baseThreshold < 3 {
 			baseThreshold = 3
 		}
-		tempResults := make(map[int]int, 100)
 
 		for i, nameNorm := range s.FilenamesOnly {
 			// Thay vì: runesName := []rune(nameNorm)
@@ -1288,7 +1287,7 @@ func (s *Searcher) Search(query string) []string {
 
 			// Nếu điểm sai chính tả nhỏ hơn ngưỡng cho phép thì tính điểm
 			// Robust solution khi sai chính tả đi quá xa (hoặc nếu không thì mong bạn có thể mở PR hỗ trợ mình)
-			if dist < baseThreshold {
+			if dist <= baseThreshold {
 				score := 10000 - (dist * 100)
 				runeCountName := 0
 				for range nameNorm {
@@ -1296,7 +1295,7 @@ func (s *Searcher) Search(query string) []string {
 				}
 				lenDiff := runeCountName - queryLen
 				if lenDiff > 0 {
-					score -= (lenDiff / 2)
+					score -= (lenDiff * 10)
 				}
 
 				// Thêm word bonus cho Levenshtein matches
@@ -1306,12 +1305,9 @@ func (s *Searcher) Search(query string) []string {
 					score += wordMatches * 3000
 				}
 
-				tempResults[i] = score
-			}
-		}
-		for idx, score := range tempResults {
-			if oldScore, exists := uniqueResults[idx]; !exists || score > oldScore {
-				uniqueResults[idx] = score
+				if oldScore, exists := uniqueResults[i]; !exists || score > oldScore {
+					uniqueResults[i] = score
+				}
 			}
 		}
 	}
