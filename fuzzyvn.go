@@ -1,7 +1,6 @@
 /*
 ----------------
 Author: verse91
-Version: v0.1.7
 License: 0BSD
 ----------------
 
