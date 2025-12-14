@@ -144,7 +144,13 @@ func isSeparator(r rune) bool {
 }
 
 func countWordMatches(queryWords []string, target string) int {
+	if len(target) < 2 {
+		return 0
+	}
 	targetWords := strings.Fields(target)
+	if len(targetWords) == 0 {
+		return 0
+	}
 	count := 0
 	for _, qWord := range queryWords {
 		if len(qWord) < 2 {
@@ -160,7 +166,8 @@ func countWordMatches(queryWords []string, target string) int {
 				break
 			}
 			// Fuzzy match: cho phép 1 lỗi nếu từ >= 3 ký tự
-			if len(qWord) >= 3 && len(tWord) >= 3 {
+			// CHỈ check Levenshtein nếu độ dài gần bằng nhau
+			if len(qWord) >= 3 && len(tWord) >= 3 && abs(len(qWord)-len(tWord)) <= 1 {
 				dist := LevenshteinRatio(qWord, tWord)
 				if dist <= 1 {
 					count++
@@ -550,7 +557,7 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 
 	numTargets := len(targets)
 	// Chỉ dùng parallel nếu dataset lớn
-	if numTargets < 1000 {
+	if numTargets < 2000 {
 		return FuzzyFind(pattern, targets)
 	}
 
@@ -608,7 +615,7 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 		wg.Add(1)
 		go func(start, end int) {
 			defer wg.Done()
-			localResults := make([]FuzzyMatch, 0, (end-start)/10)
+			localResults := make([]FuzzyMatch, 0, (end-start)/5)
 
 			for i := start; i < end; i++ {
 				ptr := targetRunePool.Get().(*[]rune)
@@ -1170,9 +1177,9 @@ func (s *Searcher) Search(query string) []string {
 		matches = FuzzyFind(queryNorm, s.Normalized)
 	}
 
-	// OPTIMIZATION: Chỉ tính word bonus cho top 100 results
+	// OPTIMIZATION: Chỉ tính word bonus cho top 30 results
 	// countWordMatches rất chậm (gọi LevenshteinRatio), không nên chạy cho tất cả
-	maxWordBonusCalc := 100
+	maxWordBonusCalc := 30
 	if len(matches) < maxWordBonusCalc {
 		maxWordBonusCalc = len(matches)
 	}
@@ -1193,12 +1200,13 @@ func (s *Searcher) Search(query string) []string {
 	// Tức là nếu user gõ "maain" hay "mian" thì ta vẫn tính điểm cho "main"
 	// Threshold = (queryLen / 3) + 1: cho phép khoảng 1 lỗi mỗi 3 ký tự + 1 lỗi bonus
 	// Minimum threshold = 3: query ngắn (2-5 ký tự) vẫn cần đủ độ linh hoạt để match
-	needLevenshtein := len(uniqueResults) < 20
-	if queryLen > 1 && needLevenshtein {
+	// needLevenshtein := len(uniqueResults) < 20
+	if queryLen > 1 {
 		baseThreshold := (queryLen / 3) + 1
 		if baseThreshold < 3 {
 			baseThreshold = 3
 		}
+		tempResults := make(map[int]int, 100)
 
 		for i, nameNorm := range s.FilenamesOnly {
 			// Thay vì: runesName := []rune(nameNorm)
@@ -1251,12 +1259,17 @@ func (s *Searcher) Search(query string) []string {
 
 				// Thêm word bonus cho Levenshtein matches
 				// Dùng tên file để tính word matches (không phải full path)
-				wordMatches := countWordMatches(queryWords, s.FilenamesOnly[i])
-				score += wordMatches * 3000
-
-				if oldScore, exists := uniqueResults[i]; !exists || score > oldScore {
-					uniqueResults[i] = score
+				if dist < 2 {
+					wordMatches := countWordMatches(queryWords, s.FilenamesOnly[i])
+					score += wordMatches * 3000
 				}
+
+				tempResults[i] = score
+			}
+		}
+		for idx, score := range tempResults {
+			if oldScore, exists := uniqueResults[idx]; !exists || score > oldScore {
+				uniqueResults[idx] = score
 			}
 		}
 	}
