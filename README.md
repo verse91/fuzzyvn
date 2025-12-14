@@ -11,6 +11,7 @@
 <p><b>FuzzyVN là thư viện tìm kiếm file bằng kỹ thuật chính là fuzzy matching được tối ưu cho tiếng Việt, và còn nhanh hơn với tiếng Anh. Kết hợp nhiều thuật toán tìm kiếm với hệ thống cache thông minh để cho kết quả nhanh và chính xác</b></p>
 
 > [!IMPORTANT]
+> **FuzzyVN tập trung vào việc tăng khả năng chính xác khi sai chính tả để đánh đổi một phần tốc độ nhưng vẫn đảm bảo tốc độ cần thiết cho dự án.**  
 > Fuzzyvn vẫn hỗ trợ rất tốt cho tiếng Anh.  
 > FuzzyVN hỗ trợ tốt nhất cho tìm kiếm file theo file path thay vì chỉ mỗi tên file (Single String), có thể sẽ dùng thừa tài nguyên cũng như điểm số có thể sai lệch một chút (sẽ không ảnh hưởng nhiều).  
 > Package này chỉ nên dùng ở local hoặc side project.  
@@ -47,54 +48,54 @@ go get github.com/verse91/fuzzyvn
 ## Benchmark
 > [!NOTE]
 > Benchmark trên laptop thường với AMD Ryzen 7 PRO 7840HS (16 threads)  
-> ***9ms, 0.5MB RAM, ~200 allocs cho 100k files***
 
 ```bash
-Search 'son tung' trong 99987 files... tìm thấy 20 kết quả trong 12.778477ms
-Search 'ky niem' trong 99987 files... tìm thấy 20 kết quả trong 5.134529ms
-Search 'lac troi' trong 99987 files... tìm thấy 20 kết quả trong 7.271664ms
+Search 'son tung' trong 99989 files... tìm thấy 20 kết quả trong 37.888441ms
+Search 'ky niem' trong 99989 files... tìm thấy 20 kết quả trong 26.357698ms
+Search 'lac troi' trong 99989 files... tìm thấy 20 kết quả trong 40.836726ms
 
 --- Benchmark Info ---
-Đã load 99987 files từ ổ cứng
+Đã load 99989 files từ ổ cứng
 ----------------------
 goos: linux
 goarch: amd64
 pkg: github.com/verse91/fuzzyvn
 cpu: AMD Ryzen 7 PRO 7840HS w/ Radeon 780M Graphics
-BenchmarkSearch_RealWorld/Search/50k_Files-16         	     294	   4568294 ns/op	  270863 B/op	     208 allocs/op
-BenchmarkSearch_RealWorld/Search/100k_Files-16        	     129	   9255966 ns/op	  515881 B/op	     212 allocs/op
-BenchmarkSearch_RealWorld/Search/100K_Files_Typo-16   	     128	   9205201 ns/op	  413723 B/op	     210 allocs/op
-BenchmarkNewSearcher-16                               	     307	   3787931 ns/op	17656070 B/op	   13012 allocs/op
-BenchmarkSearch/100_files-16                          	   37952	     31143 ns/op	   45721 B/op	      60 allocs/op
-BenchmarkSearch/1000_files-16                         	   10000	    136732 ns/op	   53063 B/op	     198 allocs/op
-BenchmarkSearch/10000_files-16                        	    1528	    814648 ns/op	  206543 B/op	     219 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16        	    4102	    272148 ns/op	   85530 B/op	     236 allocs/op
-BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16                	    4596	    265909 ns/op	   84361 B/op	     232 allocs/op
-BenchmarkSearchWithCache-16                                      	   10000	    113917 ns/op	   53374 B/op	     202 allocs/op
-BenchmarkNormalize-16                                            	   74479	     15439 ns/op	   46152 B/op	      39 allocs/op
-BenchmarkLevenshteinRatio-16                                     	 4532257	       311.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkRecordSelection-16                                      	  457828	      2698 ns/op	    8789 B/op	       8 allocs/op
-BenchmarkGetBoostScores-16                                       	   36382	     32572 ns/op	   18858 B/op	     213 allocs/op
+BenchmarkSearch_RealWorld/Search/50k_Files-16         	      92	  15557357 ns/op	  343214 B/op	     145 allocs/op
+BenchmarkSearch_RealWorld/Search/100k_Files-16        	      44	  31174767 ns/op	  672070 B/op	     147 allocs/op
+BenchmarkSearch_RealWorld/Search/100K_Files_Typo-16   	      42	  30774376 ns/op	  571255 B/op	     145 allocs/op
+BenchmarkNewSearcher-16                               	     276	   4451109 ns/op	17656051 B/op	   13012 allocs/op
+BenchmarkSearch/100_files-16                          	   31237	     34480 ns/op	   48067 B/op	      63 allocs/op
+BenchmarkSearch/1000_files-16                         	    4270	    244585 ns/op	   59499 B/op	     180 allocs/op
+BenchmarkSearch/10000_files-16                        	     348	   3206680 ns/op	  294490 B/op	    1156 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_có_dấu-16        	    2325	    448315 ns/op	   83341 B/op	     189 allocs/op
+BenchmarkSearchVietnamese/tiếng_Việt_không_dấu-16                	    2930	    406990 ns/op	   82171 B/op	     185 allocs/op
+BenchmarkSearchWithCache-16                                      	    5784	    256214 ns/op	   59745 B/op	     183 allocs/op
+BenchmarkNormalize-16                                            	   74586	     15714 ns/op	   46152 B/op	      39 allocs/op
+BenchmarkLevenshteinRatio-16                                     	 4596138	       309.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordSelection-16                                      	  486788	      2485 ns/op	    8789 B/op	       8 allocs/op
+BenchmarkGetBoostScores-16                                       	   36902	     31686 ns/op	   18856 B/op	     213 allocs/op
 PASS
-ok  	github.com/verse91/fuzzyvn	32.195s
+ok  	github.com/verse91/fuzzyvn	27.924s
 ```
 
-| Operation                           | Time    | Memory  | Notes            |
-| ----------------------------------- | ------- | ------- | ---------------- |
-| NewSearcher                         | 3.78ms  | 17.65MB | Load 99987 files |
-| Search 100 files                    | 31µs    | 45KB    |                  |
-| Search 1K files                     | 136µs   | 53KB    |                  |
-| Search 10K files                    | 814µs   | 206KB   |                  |
-| Search 50K files                    | 4.56ms  | 270KB   | Bình thường      |
-| **Search 100K files**                   | **9.25ms**  | **516KB**   | Bình thường   |
-| **Search 100K files, typo**             | **9.20ms**  | **414KB**   | Sai chính tả  |
-| Tiếng Việt có dấu                   | 272µs   | 86KB    |                  |
-| Tiếng Việt không dấu                | 265µs   | 84KB    |                  |
-| Search với Cache                    | 113µs   | 53KB    |                  |
-| Normalize                           | 15µs    | 46KB    |                  |
-| LevenshteinRatio                    | 311ns   | 0B      |                  |
-| RecordSelection                     | 2.6µs   | 8.7KB   |                  |
-| GetBoostScores                      | 32.5µs  | 18KB    |                  |
+| Operation                  | Time    | Memory  | Notes             |
+| -------------------------- | ------- | ------- | ----------------- |
+| NewSearcher                | 4.45ms  | 16.84MB | Load 99,989 files |
+| Search 100 files           | 34µs    | 46KB    |                   |
+| Search 1K files            | 245µs   | 58KB    |                   |
+| Search 10K files           | 3.20ms  | 287KB   |                   |
+| Search 50K files           | 15.56ms | 335KB   | Bình thường       |
+| Search 100K files          | 31.17ms | 656KB   | Bình thường       |
+| Search 100K files, typo    | 30.77ms | 558KB   | Sai chính tả      |
+| Vietnamese with accents    | 448µs   | 81KB    |                   |
+| Vietnamese without accents | 407µs   | 80KB    |                   |
+| Search with cache          | 256µs   | 58KB    |                   |
+| Normalize                  | 15.7µs  | 45KB    |                   |
+| LevenshteinRatio           | 309ns   | 0B      | Zero allocation   |
+| RecordSelection            | 2.48µs  | 8.6KB   |                   |
+| GetBoostScores             | 31.7µs  | 18KB    |                   |
+
 
 ```bash
 go test -bench=BenchmarkSearch -benchmem
