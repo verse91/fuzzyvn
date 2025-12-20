@@ -1,30 +1,14 @@
-import sys
-import subprocess
-import importlib.util
-
-# Hàm kiểm tra và cài đặt thư viện tự động
-def check_and_install(package_name, import_name=None):
-    if import_name is None:
-        import_name = package_name
-
-    if importlib.util.find_spec(import_name) is None:
-        print(f"⚠️  Chưa thấy thư viện '{package_name}'. Đang tự động cài đặt...")
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
-            print(f"✅ Đã cài xong '{package_name}'.")
-        except subprocess.CalledProcessError:
-            print(f"❌ Không thể cài đặt '{package_name}'. Vui lòng cài thủ công: pip install {package_name}")
-            sys.exit(1)
-
-# Kiểm tra dependency trước khi import
-check_and_install("datasets")
-check_and_install("pandas")
-
 # Bây giờ mới import
+import sys
 import random
 import os
-from datasets import load_dataset
-
+try
+    from datasets import load_dataset
+    import pandas
+except ImportError:
+    print("❌ Lỗi: Chưa cài thư viện 'datasets' hoặc 'pandas'.")
+    print("👉 Hãy chạy bằng lệnh: make gen")
+    sys.exit(1)
 # Cấu hình số lượng
 NUM_CODE_PATHS = 70000
 NUM_VN_PATHS = 30000
