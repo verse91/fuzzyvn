@@ -11,11 +11,6 @@ test:
 
 bench:
 	@go test -bench=. -benchmem
+
 gen:
-	python3 -m venv $(VENV_DIR)
-	$(PIP) install datasets pandas
-	$(PYTHON) demo/gen_data/down_data.py
-	go run demo/gen_data/gen_data.go
-clean:
-	rm -rf $(VENV_DIR)
-	rm -f demo/gen_data/test_paths_100k.txt
+	@cd demo/gen_data && go run gen_path.go && go run gen_data.go
