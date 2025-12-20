@@ -1328,63 +1328,141 @@ func (s *Searcher) Search(query string) []string {
 			baseThreshold = 3
 		}
 
-		for i, nameNorm := range s.FilenamesOnly {
-			// Thay vì: runesName := []rune(nameNorm)
-			// Ta kiểm tra độ dài bằng len() byte trước cho nhanh (sơ loại)
-			if len(nameNorm) < queryLen {
-				continue
+		// for i, nameNorm := range s.FilenamesOnly {
+		// 	// Thay vì: runesName := []rune(nameNorm)
+		// 	// Ta kiểm tra độ dài bằng len() byte trước cho nhanh (sơ loại)
+		// 	if len(nameNorm) < queryLen {
+		// 		continue
+		// 	}
+		//
+		// 	// So sánh với phần đầu của filename
+		// 	targetStr1 := fastSubstring(nameNorm, queryLen)
+		// 	// Nếu sau khi cắt mà độ dài vẫn ngắn hơn query (do ký tự utf8) thì bỏ
+		// 	if len(targetStr1) < len(queryNorm) { // so sánh byte length ok vì đã normalized
+		// 		continue
+		// 	}
+		//
+		// 	dist := LevenshteinRatio(queryNorm, targetStr1)
+		//
+		// 	// So sánh thêm 1 ký tự (phòng trường hợp typo thêm ký tự)
+		// 	if len(nameNorm) > len(targetStr1) {
+		// 		// Lấy prefix dài hơn 1 rune
+		// 		targetStr2 := fastSubstring(nameNorm, queryLen+1)
+		//
+		// 		d2 := LevenshteinRatio(queryNorm, targetStr2)
+		// 		if d2 < dist {
+		// 			dist = d2
+		// 		}
+		// 	}
+		// 	/*
+		// 		Ở phần trên ví dụ như "mian", target 1 là "main" target 2 là "maina"
+		// 		Ta tính điểm ở target 1, dist = d1 = 2, nhưng ở target 2, dist = d2 = 3
+		// 		if d2 < dist {
+		// 				dist = d2
+		// 			}
+		// 		Tức là nếu nhỏ hơn cái d1 thì lấy, còn không thì giữ nguyên
+		// 		Kiểu như min(d1, d2)
+		// 	*/
+		//
+		// 	// Nếu điểm sai chính tả nhỏ hơn ngưỡng cho phép thì tính điểm
+		// 	// Robust solution khi sai chính tả đi quá xa (hoặc nếu không thì mong bạn có thể mở PR hỗ trợ mình)
+		// 	if dist <= baseThreshold {
+		// 		score := 10000 - (dist * 100)
+		// 		runeCountName := 0
+		// 		for range nameNorm {
+		// 			runeCountName++
+		// 		}
+		// 		lenDiff := runeCountName - queryLen
+		// 		if lenDiff > 0 {
+		// 			score -= (lenDiff * 10)
+		// 		}
+		//
+		// 		// Thêm word bonus cho Levenshtein matches
+		// 		// Dùng tên file để tính word matches (không phải full path)
+		// 		if dist < 2 {
+		// 			wordMatches := countWordMatches(queryWords, s.FilenamesOnly[i])
+		// 			score += wordMatches * 3000
+		// 		}
+		//
+		// 		if oldScore, exists := uniqueResults[i]; !exists || score > oldScore {
+		// 			uniqueResults[i] = score
+		// 		}
+		// 	}
+		// }
+		maxTypoCandidates := 50
+		if queryLen > 1 && len(matches) > 0 {
+
+			baseThreshold := (queryLen / 3) + 1
+			if baseThreshold < 3 {
+				baseThreshold = 3
 			}
 
-			// So sánh với phần đầu của filename
-			targetStr1 := fastSubstring(nameNorm, queryLen)
-			// Nếu sau khi cắt mà độ dài vẫn ngắn hơn query (do ký tự utf8) thì bỏ
-			if len(targetStr1) < len(queryNorm) { // so sánh byte length ok vì đã normalized
-				continue
-			}
+			for i := 0; i < len(matches) && i < maxTypoCandidates; i++ {
+				idx := matches[i].Index
+				nameNorm := s.FilenamesOnly[idx]
 
-			dist := LevenshteinRatio(queryNorm, targetStr1)
-
-			// So sánh thêm 1 ký tự (phòng trường hợp typo thêm ký tự)
-			if len(nameNorm) > len(targetStr1) {
-				// Lấy prefix dài hơn 1 rune
-				targetStr2 := fastSubstring(nameNorm, queryLen+1)
-
-				d2 := LevenshteinRatio(queryNorm, targetStr2)
-				if d2 < dist {
-					dist = d2
+				if len(nameNorm) < queryLen {
+					continue
 				}
-			}
-			/*
-				Ở phần trên ví dụ như "mian", target 1 là "main" target 2 là "maina"
-				Ta tính điểm ở target 1, dist = d1 = 2, nhưng ở target 2, dist = d2 = 3
-				if d2 < dist {
+
+				target1 := fastSubstring(nameNorm, queryLen)
+				if len(target1) < len(queryNorm) {
+					continue
+				}
+
+				dist := LevenshteinRatio(queryNorm, target1)
+
+				if len(nameNorm) > len(target1) {
+					target2 := fastSubstring(nameNorm, queryLen+1)
+					d2 := LevenshteinRatio(queryNorm, target2)
+					if d2 < dist {
 						dist = d2
 					}
-				Tức là nếu nhỏ hơn cái d1 thì lấy, còn không thì giữ nguyên
-				Kiểu như min(d1, d2)
-			*/
-
-			// Nếu điểm sai chính tả nhỏ hơn ngưỡng cho phép thì tính điểm
-			// Robust solution khi sai chính tả đi quá xa (hoặc nếu không thì mong bạn có thể mở PR hỗ trợ mình)
-			if dist <= baseThreshold {
-				score := 10000 - (dist * 100)
-				runeCountName := 0
-				for range nameNorm {
-					runeCountName++
-				}
-				lenDiff := runeCountName - queryLen
-				if lenDiff > 0 {
-					score -= (lenDiff * 10)
 				}
 
-				// Thêm word bonus cho Levenshtein matches
-				// Dùng tên file để tính word matches (không phải full path)
-				if dist < 2 {
-					wordMatches := countWordMatches(queryWords, s.FilenamesOnly[i])
-					score += wordMatches * 3000
-				}
+				if dist <= baseThreshold {
+					score := 10000 - (dist * 100)
 
-				if oldScore, exists := uniqueResults[i]; !exists || score > oldScore {
+					runeCount := 0
+					for range nameNorm {
+						runeCount++
+					}
+					lenDiff := runeCount - queryLen
+					if lenDiff > 0 {
+						score -= lenDiff * 10
+					}
+
+					// word bonus
+					if dist < 2 {
+						wordMatches := countWordMatches(queryWords, nameNorm)
+						score += wordMatches * 3000
+					}
+
+					if oldScore, exists := uniqueResults[idx]; !exists || score > oldScore {
+						uniqueResults[idx] = score
+					}
+				}
+			}
+		}
+	}
+	// Chỉ chạy khi fuzzy = 0 (hiếm)
+	if queryLen >= 3 && len(matches) == 0 {
+		for i, nameNorm := range s.FilenamesOnly {
+
+			// lọc cực gắt
+			if abs(len(nameNorm)-queryLen) > 2 {
+				continue
+			}
+
+			target := fastSubstring(nameNorm, queryLen)
+			if len(target) < len(queryNorm) {
+				continue
+			}
+
+			dist := LevenshteinRatio(queryNorm, target)
+			if dist <= 2 {
+				score := 8000 - dist*100
+				if old, ok := uniqueResults[i]; !ok || score > old {
 					uniqueResults[i] = score
 				}
 			}
