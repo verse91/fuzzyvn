@@ -50,6 +50,8 @@ fuzzyvn.go Structure:
 package fuzzyvn
 
 import (
+	"bufio"
+	_ "embed"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -64,6 +66,34 @@ import (
 
 // Struct
 // =============================================================================
+
+//go:embed db/wordlist.txt
+var wordListContent string
+
+type TrieNode struct {
+	Children map[rune]*TrieNode
+	IsEnd    bool
+}
+
+type Trie struct {
+	Root *TrieNode
+}
+
+func NewTrie() *Trie {
+	return &Trie{Root: &TrieNode{Children: make(map[rune]*TrieNode)}}
+}
+
+// Load wordlist.txt
+func (t *Trie) Insert(word string) {
+	node := t.Root
+	for _, r := range []rune(Normalize(word)) {
+		if node.Children[r] == nil {
+			node.Children[r] = &TrieNode{Children: make(map[rune]*TrieNode)}
+		}
+		node = node.Children[r]
+	}
+	node.IsEnd = true
+}
 
 /*
   - Boost score tính theo SelectCount: File chọn nhiều lần → điểm boost cao hơn:
@@ -91,6 +121,7 @@ type Searcher struct {
 	FilenamesOnly []string       // Chỉ chứa tên file đã chuẩn hóa (bỏ đường dẫn). Dùng cho thuật toán Levenshtein (sửa lỗi chính tả)
 	FilePathToIdx map[string]int // Nhằm mục đích không phải tạo lại mỗi lần Search
 	Cache         *QueryCache    // Để lấy dữ liệu lịch sử
+	Dictionary    *Trie          // wordlist
 }
 
 /*
@@ -178,8 +209,7 @@ func countWordMatches(queryWords []string, target string) int {
 }
 
 func Normalize(s string) string {
-	// 1. FAST PATH: Nếu toàn là ASCII (Tiếng Anh, Code) -> Lowercase và trả về ngay
-	// Đây là trường hợp phổ biến nhất (90% file source code) -> Tốc độ siêu nhanh
+	// Nếu toàn là ASCII (Tiếng Anh, Code) -> Lowercase và trả về ngay
 	isASCII := true
 	for i := 0; i < len(s); i++ {
 		if s[i] > 127 {
@@ -191,22 +221,19 @@ func Normalize(s string) string {
 		return strings.ToLower(s)
 	}
 
-	// 2. NFD CHECK: Chỉ convert về NFC nếu chuỗi đang ở dạng NFD (thường gặp trên macOS)
-	// Hàm IsNormalString rất nhanh, giúp tránh việc allocate lại chuỗi nếu không cần thiết
+	// Ta cần convert về NFC vì có một số file system dùng NFD như MacOS
 	if !norm.NFC.IsNormalString(s) {
 		s = norm.NFC.String(s)
 	}
 
-	// 3. BUILDER: Dùng Builder để nối chuỗi hiệu quả
+	// Dùng Builder để nối chuỗi hiệu quả hơn
+	// (có thể hiệu quả hơn thật vì mình đọc được cái này từ Java, nếu bạn thấy còn cách nào tốt hơn hãy mở PR)
 	var b strings.Builder
-	// Grow đúng kích thước để tránh alloc nhiều lần.
-	// Chuỗi không dấu thường ngắn hơn hoặc bằng chuỗi có dấu.
+	// Grow đúng kích thước để tránh alloc nhiều lần
+	// Chuỗi không dấu thường ngắn hơn hoặc bằng chuỗi có dấu
 	b.Grow(len(s))
 
-	// 4. MANUAL MAPPING: Duyệt từng rune và map thủ công
-	// Lưu ý: Không dùng range strings.ToLower(s) để tránh tạo string tạm
 	for _, r := range s {
-		// Lowercase từng ký tự
 		r = unicode.ToLower(r)
 
 		switch r {
@@ -232,6 +259,44 @@ func Normalize(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// Hàm tách từ dựa trên wordlist (Longest Matching)
+// Ví dụ: "học sinh học lập trình" -> Output: ["học sinh", "học", "lập trình"]
+func (t *Trie) Tokenize(text string) []string {
+	runes := []rune(Normalize(text))
+	var tokens []string
+	n := len(runes)
+	i := 0
+
+	for i < n {
+		node := t.Root
+		matchEnd := -1 // Vị trí cuối cùng khớp với một từ có nghĩa
+
+		// Chạy tham lam để tìm từ dài nhất có thể từ vị trí i
+		for j := i; j < n; j++ {
+			char := runes[j]
+			if nextNode, exists := node.Children[char]; exists {
+				node = nextNode
+				if node.IsEnd {
+					matchEnd = j // Đánh dấu lại nếu đây là một từ trọn vẹn
+				}
+			} else {
+				break // Không khớp nữa thì dừng
+			}
+		}
+
+		if matchEnd != -1 {
+			// Tìm thấy từ trong từ điển (VD: "học sinh")
+			tokens = append(tokens, string(runes[i:matchEnd+1]))
+			i = matchEnd + 1
+		} else {
+			// Không tìm thấy (Từ lạ hoặc gõ sai) -> Lấy 1 ký tự làm token riêng
+			tokens = append(tokens, string(runes[i:i+1]))
+			i++
+		}
+	}
+	return tokens
 }
 
 func fastSubstring(s string, n int) string {
@@ -1144,6 +1209,12 @@ func NewSearcher(items []string) *Searcher {
 	normPaths := make([]string, len(items))
 	normNames := make([]string, len(items))
 	pathMap := make(map[string]int, len(items))
+	trie := NewTrie()
+
+	scanner := bufio.NewScanner(strings.NewReader(wordListContent))
+	for scanner.Scan() {
+		trie.Insert(scanner.Text())
+	}
 
 	for i, item := range items {
 		originals[i] = item
@@ -1163,6 +1234,7 @@ func NewSearcher(items []string) *Searcher {
 		FilenamesOnly: normNames,
 		FilePathToIdx: pathMap,
 		Cache:         NewQueryCache(),
+		Dictionary:    trie,
 	}
 }
 
@@ -1198,7 +1270,14 @@ func (s *Searcher) Search(query string) []string {
 	for range queryNorm {
 		queryLen++
 	}
-	queryWords := strings.Fields(queryNorm)
+
+	var queryWords []string
+	if s.Dictionary != nil {
+		queryWords = s.Dictionary.Tokenize(queryNorm)
+	} else {
+		// Fallback nếu chưa load từ điển
+		queryWords = strings.Fields(queryNorm)
+	}
 
 	// Ước lượng capacity là để hạn chế resize
 	uniqueResults := make(map[int]int, 50)
