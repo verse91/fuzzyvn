@@ -121,6 +121,7 @@ type Searcher struct {
 	FilenamesOnly []string       // Chỉ chứa tên file đã chuẩn hóa (bỏ đường dẫn). Dùng cho thuật toán Levenshtein (sửa lỗi chính tả)
 	FilePathToIdx map[string]int // Nhằm mục đích không phải tạo lại mỗi lần Search
 	Cache         *QueryCache    // Để lấy dữ liệu lịch sử
+	runeCache     sync.Map       // map[string][]rune
 	Dictionary    *Trie          // wordlist
 }
 
@@ -206,6 +207,17 @@ func countWordMatches(queryWords []string, target string) int {
 		}
 	}
 	return count
+}
+
+// Helper lấy rune cache
+func (s *Searcher) getQueryRunes(queryNorm string) []rune {
+	if v, ok := s.runeCache.Load(queryNorm); ok {
+		return v.([]rune)
+	}
+
+	r := []rune(queryNorm)
+	s.runeCache.Store(queryNorm, r)
+	return r
 }
 
 func Normalize(s string) string {
@@ -602,8 +614,7 @@ FuzzyFind: Tìm tất cả targets khớp với pattern
 - Nếu match thì thêm vào results (Index, Score, Positions)
 - Xong sort theo score giảm dần
 */
-func FuzzyFind(pattern string, targets []string) []FuzzyMatch {
-	patternRunes := []rune(Normalize(pattern)) // 1 alloc
+func FuzzyFind(patternRunes []rune, targets []string) []FuzzyMatch {
 	if len(patternRunes) == 0 {
 		return nil
 	}
@@ -656,8 +667,7 @@ Sử dụng goroutines để tăng tốc với datasets lớn
 - targets: Danh sách strings để search
 - Trả về: Slice of FuzzyMatch, sorted by score descending
 */
-func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
-	patternRunes := []rune(pattern)
+func FuzzyFindParallel(patternRunes []rune, targets []string) []FuzzyMatch {
 	if len(patternRunes) == 0 {
 		return nil
 	}
@@ -665,7 +675,7 @@ func FuzzyFindParallel(pattern string, targets []string) []FuzzyMatch {
 	numTargets := len(targets)
 	// Chỉ dùng parallel nếu dataset lớn
 	if numTargets < 2000 {
-		return FuzzyFind(pattern, targets)
+		return FuzzyFind(patternRunes, targets)
 	}
 
 	/*
@@ -1292,10 +1302,12 @@ func (s *Searcher) Search(query string) []string {
 	// Search bằng Smith-Waterman Fuzzy Matcher (tự implement, không dependency)
 	// Dùng parallel version nếu có nhiều files
 	var matches []FuzzyMatch
+	patternRunes := s.getQueryRunes(queryNorm)
+
 	if len(s.Normalized) >= 1000 {
-		matches = FuzzyFindParallel(queryNorm, s.Normalized)
+		matches = FuzzyFindParallel(patternRunes, s.Normalized)
 	} else {
-		matches = FuzzyFind(queryNorm, s.Normalized)
+		matches = FuzzyFind(patternRunes, s.Normalized)
 	}
 
 	// OPTIMIZATION: Chỉ tính word bonus cho top 30 results
@@ -1445,11 +1457,10 @@ func (s *Searcher) Search(query string) []string {
 			}
 		}
 	}
-	// Chỉ chạy khi fuzzy = 0 (hiếm)
+	// Chỉ chạy khi fuzzy = 0
 	if queryLen >= 3 && len(matches) == 0 {
 		for i, nameNorm := range s.FilenamesOnly {
 
-			// lọc cực gắt
 			if abs(len(nameNorm)-queryLen) > 2 {
 				continue
 			}
