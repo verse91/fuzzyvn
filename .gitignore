@@ -1,2 +1,4 @@
 demo/test_data
 .venv
+demo/gen_data/test_paths_100k.txt
+
